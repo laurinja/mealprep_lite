@@ -1,10 +1,10 @@
-# MealPrep Lite 🥗
+# MealPrep Lite 
 
 ![Built with Flutter](https://img.shields.io/badge/Built%20with-Flutter-02569B?logo=flutter)
 
 MealPrep Lite é um aplicativo móvel de planejamento de refeições, desenvolvido em Flutter. O projeto foi criado para estudantes com pouco tempo, focando em uma maneira rápida e visual de gerar um plano base de refeições para a semana, sem sobrecarregar o usuário com detalhes.
 
-## 📱 Telas Principais
+##  Telas Principais
 
 (Em breve: Adicionar GIFs e screenshots do app)
 
@@ -12,7 +12,7 @@ MealPrep Lite é um aplicativo móvel de planejamento de refeições, desenvolvi
 * Tela Inicial (Home) com a seleção de preferências e o plano gerado
 * Drawer (na direita) com configurações e Avatar do Usuário
 
-## ✨ Funcionalidades
+##  Funcionalidades
 
 Este app é uma adaptação do FitWallet, reutilizando a arquitetura base para um novo propósito, e inclui:
 
@@ -35,7 +35,7 @@ Este app é uma adaptação do FitWallet, reutilizando a arquitetura base para u
 * **Persistência de Dados:**
     * Preferências do usuário (como status do onboarding e consentimento) e o caminho da foto do avatar são salvos localmente usando `shared_preferences`.
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️Tecnologias Utilizadas
 
 * **Framework:** [Flutter](https://flutter.dev/)
 * **Gerenciamento de Estado:** [Provider](https://pub.dev/packages/provider)
@@ -44,7 +44,7 @@ Este app é uma adaptação do FitWallet, reutilizando a arquitetura base para u
 * **Processamento de Imagem:** [flutter_image_compress](https://pub.dev/packages/flutter_image_compress)
 * **Gerenciamento de Caminhos de Arquivo:** [path_provider](https://pub.dev/packages/path_provider)
 
-## 🚀 Como Executar o Projeto
+##  Como Executar o Projeto
 
 1.  **Clone o repositório:**
     ```bash
@@ -67,6 +67,6 @@ Este app é uma adaptação do FitWallet, reutilizando a arquitetura base para u
     flutter run
     ```
 
-## 🎓 Contexto do Projeto
+##  Contexto do Projeto
 
 Este aplicativo foi desenvolvido como um projeto acadêmico. O desafio principal foi adaptar uma base de código existente (FitWallet) para atender a um novo conjunto de requisitos, implementando uma nova lógica de negócios (MealPrep), uma UI completamente diferente e funcionalidades complexas de nível profissional, como a gestão de avatares de usuário conforme um Documento de Requisitos de Produto (PRD).
