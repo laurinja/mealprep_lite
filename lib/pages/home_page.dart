@@ -1,14 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart'; // NOVO: Seletor de imagem
-import 'package:flutter_image_compress/flutter_image_compress.dart'; // NOVO: Compressor
-import 'package:path_provider/path_provider.dart'; // NOVO: Local de salvamento
-import 'package:path/path.dart' as p; // NOVO: Para manipular caminhos
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../models/refeicao.dart';
 import '../services/meal_service.dart';
 import '../services/prefs_service.dart';
+import '../widgets/app_drawer.dart'; // Importa o Drawer refatorado
 
 class HomePage extends StatefulWidget {
   final PrefsService prefs;
@@ -23,7 +24,7 @@ class _HomePageState extends State<HomePage> {
   final List<String> _todasPreferencias = ['Rápido', 'Saudável', 'Vegetariano'];
 
   String? _userPhotoPath;
-  final ImagePicker _picker = ImagePicker(); // NOVO: Instância do ImagePicker
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -31,7 +32,7 @@ class _HomePageState extends State<HomePage> {
     _userPhotoPath = widget.prefs.getUserPhotoPath();
   }
 
-  // --- NOVO: Lógica de seleção e salvamento de imagem ---
+  // --- Métodos de Ação do Avatar ---
 
   Future<void> _onEditAvatarPressed() async {
     Navigator.pop(context); // Fecha o drawer
@@ -76,20 +77,16 @@ class _HomePageState extends State<HomePage> {
       final XFile? pickedFile = await _picker.pickImage(source: source);
       if (pickedFile == null) return;
 
-      // 1. Comprimir (conforme PRD) [cite: 22]
       final File? compressedFile = await _compressImage(pickedFile);
       if (compressedFile == null) return;
 
-      // 2. Salvar Localmente 
       final String savedPath = await _saveImageLocally(compressedFile);
 
-      // 3. Atualizar Prefs e Estado [cite: 48, 113]
       await widget.prefs.setUserPhotoPath(savedPath);
       setState(() {
         _userPhotoPath = savedPath;
       });
     } catch (e) {
-      // (PRD: Falha ao abrir câmera/galeria) [cite: 78]
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Falha ao selecionar imagem. Tente novamente.')),
@@ -99,14 +96,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<File?> _compressImage(XFile file) async {
-    // (PRD: Compressão 512x512, Q80, remove EXIF) [cite: 22, 54]
     final result = await FlutterImageCompress.compressWithFile(
       file.path,
       minWidth: 512,
       minHeight: 512,
       quality: 80,
       autoCorrectionAngle: true,
-      keepExif: false, // (PRD: Remoção de EXIF sensíveis) [cite: 22, 54]
+      keepExif: false,
     );
 
     if (result == null) return null;
@@ -118,9 +114,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<String> _saveImageLocally(File imageFile) async {
-    // (PRD: Diretório app - Documentos) 
     final directory = await getApplicationDocumentsDirectory();
-    // (PRD: Nome: avatar.jpg) 
     final String newPath = p.join(directory.path, 'avatar.jpg');
     
     await imageFile.copy(newPath);
@@ -128,7 +122,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _removeImage() async {
-    // (PRD: "Remover foto" apaga arquivo local e limpa chave) [cite: 59]
     if (_userPhotoPath != null) {
       final file = File(_userPhotoPath!);
       if (await file.exists()) {
@@ -142,90 +135,238 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // --- Métodos de Lógica (MealPrep) ---
+  // --- Método de Lógica (MealPrep) ---
+  void _gerarPlano() {
+    context.read<MealService>().gerarPlano(_preferenciasSelecionadas);
+  }
+
+  // --- Build ---
   @override
   Widget build(BuildContext context) {
-    final mealService = context.watch<MealService>();
-    final planoGerado = mealService.planoSemanal;
-    final theme = Theme.of(context);
+    return Consumer<MealService>(
+      builder: (context, mealService, child) {
+        final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      appBar: AppBar(
-        title: const Text('MealPrep Lite'),
+        return Scaffold(
+          backgroundColor: theme.colorScheme.background, // Fundo Creme
+          appBar: AppBar(
+            // Ícones da Esquerda (Avatar e Configurações)
+            leadingWidth: 100, // Aumenta o espaço para os dois ícones
+            leading: Builder(
+              builder: (context) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Avatar no AppBar
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16.0),
+                      child: CircleAvatar(
+                        radius: 16,
+                        backgroundImage: _userPhotoPath != null
+                            ? FileImage(File(_userPhotoPath!))
+                            : null,
+                        backgroundColor: theme.colorScheme.background, // Fundo Creme
+                        child: _userPhotoPath == null
+                            ? Text(
+                                'A', 
+                                style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold) // Letra Verde
+                              )
+                            : null,
+                      ),
+                    ),
+                    // Ícone de Configurações
+                    IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      iconSize: 24,
+                      onPressed: () {
+                        Navigator.of(context).pushNamed('/settings');
+                      },
+                    ),
+                  ],
+                );
+              }
+            ),
+            title: const Text('MealPrep Lite'),
+            centerTitle: true,
+            backgroundColor: theme.colorScheme.secondary, // Marrom
+            elevation: 0,
+            // Ações da Direita (O ícone do Drawer aparecerá aqui)
+            // Deixamos a lista de 'actions' vazia para que o Scaffold
+            // mostre automaticamente o botão do 'endDrawer'
+            actions: const [],
+          ),
+          endDrawer: AppDrawer(
+            userPhotoPath: _userPhotoPath,
+            onEditAvatarPressed: _onEditAvatarPressed,
+          ),
+          body: _buildBody(mealService, theme),
+        );
+      },
+    );
+  }
+
+  // --- Widgets do Corpo ---
+
+  Widget _buildBody(MealService mealService, ThemeData theme) {
+    final planoGerado = mealService.planoSemanal;
+
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        _buildSearchBar(theme),
+        const SizedBox(height: 24),
+        // Os 3 cards de resumo foram removidos
+        _buildPreferencesCard(theme),
+        const SizedBox(height: 24),
+        Center(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.restaurant_menu),
+            label: const Text('Gerar Cardápio Semanal'),
+            onPressed: _gerarPlano,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary, // Verde
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        Text(
+          'Plano Gerado',
+          style: theme.textTheme.titleLarge?.copyWith(
+              color: theme.colorScheme.secondary,
+              fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        _buildRefeicaoList(planoGerado, theme),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar(ThemeData theme) {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: 'Buscar...',
+        hintStyle: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4)),
+        prefixIcon: Icon(Icons.search, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+        filled: true,
+        fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.0),
+          borderSide: BorderSide.none,
+        ),
       ),
-      endDrawer: _buildDrawer(theme),
-      body: ListView(
+      onChanged: (value) {
+        // Lógica de busca (pode ser implementada depois)
+      },
+    );
+  }
+
+  // _buildSummaryCards e _buildSummaryCard foram removidos
+
+  Widget _buildPreferencesCard(ThemeData theme) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: theme.colorScheme.surface,
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
-        children: [
-          Text(
-            '1. Escolha suas preferências',
-            style: theme.textTheme.titleLarge?.copyWith(
-                color: theme.colorScheme.secondary,
-                fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8.0,
-            children: _todasPreferencias.map((preferencia) {
-              final isSelected = _preferenciasSelecionadas.contains(preferencia);
-              return FilterChip(
-                label: Text(preferencia),
-                selected: isSelected,
-                onSelected: (bool selected) {
-                  setState(() {
-                    if (selected) {
-                      _preferenciasSelecionadas.add(preferencia);
-                    } else {
-                      _preferenciasSelecionadas.remove(preferencia);
-                    }
-                  });
-                },
-                selectedColor: theme.colorScheme.primary.withOpacity(0.3),
-                checkmarkColor: theme.colorScheme.secondary,
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.restaurant_menu),
-              label: const Text('Gerar Cardápio Semanal'),
-              onPressed: () {
-                context
-                    .read<MealService>()
-                    .gerarPlano(_preferenciasSelecionadas);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                textStyle:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.rule, color: theme.colorScheme.primary), // Ícone Verde
+                const SizedBox(width: 8),
+                Text(
+                  '1. Escolha suas Preferências',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.secondary, // Marrom
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Selecione as tags para filtrar seu plano semanal.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
-          ),
-          const SizedBox(height: 32),
-          if (planoGerado.isNotEmpty) ...[
-            Text(
-              '2. Seu plano base para a semana!',
-              style: theme.textTheme.titleLarge?.copyWith(
-                  color: theme.colorScheme.secondary,
-                  fontWeight: FontWeight.bold),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8.0,
+              children: _todasPreferencias.map((preferencia) {
+                final isSelected = _preferenciasSelecionadas.contains(preferencia);
+                return FilterChip(
+                  label: Text(preferencia),
+                  selected: isSelected,
+                  onSelected: (bool selected) {
+                    setState(() {
+                      if (selected) {
+                        _preferenciasSelecionadas.add(preferencia);
+                      } else {
+                        _preferenciasSelecionadas.remove(preferencia);
+                      }
+                    });
+                  },
+                  selectedColor: theme.colorScheme.primary.withOpacity(0.3),
+                  checkmarkColor: theme.colorScheme.secondary,
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 12),
-            ...planoGerado
-                .map((refeicao) => _buildRefeicaoCard(refeicao, theme))
-                .toList(),
-          ]
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  Widget _buildRefeicaoList(List<Refeicao> planoGerado, ThemeData theme) {
+    if (planoGerado.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 20.0),
+          child: Column(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 60,
+                color: theme.colorScheme.onSurface.withOpacity(0.3),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Nenhum plano gerado',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                ),
+              ),
+              Text(
+                'Gere um plano usando suas preferências acima.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: planoGerado.length,
+      itemBuilder: (context, index) {
+        return _buildRefeicaoCard(planoGerado[index], theme);
+      },
+    );
+  }
+
   Widget _buildRefeicaoCard(Refeicao refeicao, ThemeData theme) {
-    // (Este método não foi alterado)
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -272,99 +413,6 @@ class _HomePageState extends State<HomePage> {
             ]
           ],
         ),
-      ),
-    );
-  }
-
-  // --- _buildDrawer (sem alteração da Etapa 2) ---
-  Drawer _buildDrawer(ThemeData theme) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.secondary, // Marrom
-            ),
-            accountName: const Text(
-              'Aluna MealPrep',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            accountEmail: const Text('meu.email@exemplo.com'),
-            currentAccountPicture: Semantics(
-              label: 'Foto do perfil',
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 36.0,
-                    backgroundImage: _userPhotoPath != null
-                        ? FileImage(File(_userPhotoPath!))
-                        : null,
-                    backgroundColor: theme.colorScheme.background, // Fundo Creme
-                    child: _userPhotoPath == null
-                        ? Text(
-                            'A', 
-                            style: TextStyle(
-                              fontSize: 40.0,
-                              color: theme.colorScheme.primary, // Letra Verde
-                            ),
-                          )
-                        : null,
-                  ),
-                  Positioned(
-                    bottom: -4,
-                    right: -4,
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: theme.colorScheme.background, // Fundo Creme
-                      child: IconButton(
-                        iconSize: 20,
-                        icon: Icon(Icons.edit,
-                            color: theme.colorScheme.primary), // Ícone Verde
-                        onPressed: _onEditAvatarPressed, // AGORA ESTA FUNÇÃO FUNCIONA
-                        tooltip: 'Alterar foto do perfil',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Refazer Onboarding'),
-            subtitle: const Text('Sem limpar consentimento'),
-            onTap: () async {
-              Navigator.pop(context);
-              await widget.prefs.setOnboardingCompleted(false);
-              bool currentConsent = widget.prefs.getMarketingConsent();
-              Navigator.of(context).pushReplacementNamed(
-                '/onboarding',
-                arguments: {
-                  'startAtPage': 0,
-                  'initialConsent': currentConsent,
-                },
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.privacy_tip_outlined),
-            title: const Text('Limpar Consentimento'),
-            subtitle: const Text('Revogar aceite da política'),
-            onTap: () async {
-              Navigator.pop(context);
-              await widget.prefs.setMarketingConsent(false);
-              Navigator.of(context).pushReplacementNamed(
-                '/onboarding',
-                arguments: {
-                  'startAtPage': 2,
-                  'initialConsent': false,
-                },
-              );
-            },
-          ),
-        ],
       ),
     );
   }
