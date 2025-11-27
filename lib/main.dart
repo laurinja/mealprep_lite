@@ -4,10 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/injection/injection_container.dart';
 import 'features/onboarding/presentation/pages/splash_page.dart';
-import 'core/constants/app_theme.dart'; //
+import 'core/constants/app_theme.dart'; 
 import 'features/onboarding/presentation/pages/onboarding_page.dart';
 import 'features/meal_plan/presentation/pages/home_page.dart';
-import 'features/settings/presentation/pages/settings_page.dart'; //
+import 'features/settings/presentation/pages/settings_page.dart'; 
+import 'core/constants/app_theme.dart'
 
 void main() async {
   final prefs = await SharedPreferences.getInstance();
@@ -30,16 +31,13 @@ class AppWidget extends StatelessWidget {
     return MaterialApp(
       title: "MealPrep Lite",
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme, //
+      theme: AppTheme.theme, 
       home: const SplashPage(),
       routes: {
         '/splash': (_) => const SplashPage(),
-        '/onboarding': (_) =>
-            const OnboardingPage(), // Adicionado para navegação do Splash
-        '/home': (_) =>
-            const HomePage(), // Adicionado para navegação do Onboarding/Splash
-        '/settings': (_) =>
-            const SettingsPage(), // Corrigido para usar a página real
+        '/onboarding': (_) => const OnboardingPage(), 
+        '/home': (_) => const HomePage(), 
+        '/settings': (_) => const SettingsPage(), 
       },
     );
   }

@@ -3,21 +3,22 @@ description: MealPrep Lite — planejamento de refeições simplificado. Organiz
 publish_to: "none"
 
 environment:
-  sdk: ">=2.18.0 <4.0.0"
+  # ⚠️ CORREÇÃO FINAL: Usa a sintaxe recomendada e define o mínimo em 3.0.0.
+  # Isso resolve o erro de "no lower-bound SDK constraint" e o problema de url_launcher.
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_image_compress: ^2.4.0
   flutter_launcher_icons: ^0.14.4
-  flutter_markdown: ^0.7.7+1
+  flutter_markdown: ^0.7.7
   flutter_native_splash: ^2.4.6
   image_picker: ^1.2.0
   path_provider: ^2.1.5
-  provider: ^6.1.5+1
+  provider: ^6.1.5
   shared_preferences: ^2.0.15
   url_launcher: ^6.3.2
-  # use the packages you already had; add others as needed
 
 dev_dependencies:
   flutter_test:

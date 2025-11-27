@@ -15,20 +15,26 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   int _currentPage = 0;
 
   final onboardingPages = const [
-    _OnboardItem(
+    _OnboardImageItem(
       title: "Bem-vindo ao MealPrep Lite",
       description: "Organize suas refeições com facilidade.",
-      icon: Icons.fastfood,
+      assetPath: 'assets/images/onboarding1.png',
     ),
-    _OnboardItem(
-      title: "Receitas práticas",
-      description: "Acompanhe receitas pensadas para sua rotina.",
-      icon: Icons.book,
+    _OnboardImageItem(
+      title: "Planejamento Rápido",
+      description: "Selecione suas tags e gere um cardápio em segundos.",
+      assetPath: 'assets/images/onboarding2.png',
     ),
-    _OnboardItem(
-      title: "Planejamento rápido",
-      description: "Monte cardápios semanais em minutos.",
-      icon: Icons.calendar_today,
+    _OnboardImageItem(
+      title: "Sua Privacidade em Primeiro Lugar",
+      description:
+          "Seus dados ficam apenas no seu dispositivo. Não coletamos ou compartilhamos informações pessoais. (RNF-2)",
+      assetPath: 'assets/images/onboarding4.png',
+    ),
+    _OnboardImageItem(
+      title: "Tudo Pronto!",
+      description: "Toque em 'Começar' e acesse o planejador de refeições.",
+      assetPath: 'assets/images/onboarding4.png',
     ),
   ];
 
@@ -46,7 +52,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 itemBuilder: (_, i) => onboardingPages[i],
               ),
             ),
-
             _buildBottomSection(context),
           ],
         ),
@@ -56,13 +61,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
   Widget _buildBottomSection(BuildContext context) {
     final isLast = _currentPage == onboardingPages.length - 1;
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // dots
           Row(
             children: List.generate(
               onboardingPages.length,
@@ -72,17 +77,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 width: _currentPage == i ? 18 : 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: _currentPage == i ? Colors.blue : Colors.grey,
+                  color: _currentPage == i
+                      ? theme.colorScheme.primary
+                      : Colors.grey,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
           ),
-
           ElevatedButton(
             onPressed: () async {
               if (isLast) {
-                // finaliza onboarding
                 await ref.read(setMarketingConsentProvider).call(true);
                 await ref.read(setOnboardingCompletedProvider).call();
 
@@ -104,15 +109,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 }
 
-class _OnboardItem extends StatelessWidget {
+class _OnboardImageItem extends StatelessWidget {
   final String title;
   final String description;
-  final IconData icon;
+  final String assetPath;
 
-  const _OnboardItem({
+  const _OnboardImageItem({
     required this.title,
     required this.description,
-    required this.icon,
+    required this.assetPath,
   });
 
   @override
@@ -122,9 +127,16 @@ class _OnboardItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 120, color: Colors.blue),
+          Image.asset(
+            assetPath,
+            height: 200,
+          ),
           const SizedBox(height: 32),
-          Text(title, style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.headlineMedium,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
           Text(
             description,
