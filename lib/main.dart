@@ -4,10 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/injection/injection_container.dart';
 import 'features/onboarding/presentation/pages/splash_page.dart';
+import 'core/constants/app_theme.dart'; //
+import 'features/onboarding/presentation/pages/onboarding_page.dart';
+import 'features/meal_plan/presentation/pages/home_page.dart';
+import 'features/settings/presentation/pages/settings_page.dart'; //
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   final prefs = await SharedPreferences.getInstance();
 
   runApp(
@@ -28,14 +30,16 @@ class AppWidget extends StatelessWidget {
     return MaterialApp(
       title: "MealPrep Lite",
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        useMaterial3: true,
-      ),
+      theme: AppTheme.theme, //
       home: const SplashPage(),
       routes: {
         '/splash': (_) => const SplashPage(),
-        '/settings': (_) => const Text("SettingsPage ainda não conectada."),
+        '/onboarding': (_) =>
+            const OnboardingPage(), // Adicionado para navegação do Splash
+        '/home': (_) =>
+            const HomePage(), // Adicionado para navegação do Onboarding/Splash
+        '/settings': (_) =>
+            const SettingsPage(), // Corrigido para usar a página real
       },
     );
   }
