@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import '../services/prefs_service.dart';
+import 'package:mealprep_lite/services/prefs_service.dart';
 import '../widgets/policy_dialog.dart';
 import '../core/constants/legal.dart';
 
@@ -15,22 +14,22 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _controller = PageController();
   int _currentPage = 0;
-  bool _termsAccepted = false; // Controle do Checkbox
+  bool _termsAccepted = false;
 
   void _finishOnboarding() async {
-    if (!_termsAccepted) return; // Segurança extra
+    if (!_termsAccepted) return;
 
-    await context.read<PrefsService>().setOnboardingCompleted(true);
-    // Salva que o usuário aceitou os termos (Marketing Consent como proxy ou crie uma chave nova)
-    await context.read<PrefsService>().setMarketingConsent(true);
+    final prefs = context.read<PrefsService>();
+    await prefs.setOnboardingCompleted(true);
+    await prefs.setMarketingConsent(true);
     
-    if (mounted) Navigator.pushReplacementNamed(context, '/home');
+    // MUDANÇA: Vai para o Login agora
+    if (mounted) Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Definindo as páginas dentro do build para acessar o tema
     final List<Widget> pages = [
       _buildPage(
         title: 'Bem-vindo',
@@ -43,7 +42,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         icon: Icons.security,
         isPrivacy: true,
       ),
-      _buildLastPage(theme), // Página final customizada
+      _buildLastPage(theme),
     ];
 
     return Scaffold(
@@ -54,12 +53,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             onPageChanged: (i) => setState(() => _currentPage = i),
             children: pages,
           ),
-
-          // Dots indicator
           Positioned(
             bottom: 100,
-            left: 0,
-            right: 0,
+            left: 0, right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
@@ -70,33 +66,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   height: 8,
                   width: _currentPage == index ? 24 : 8,
                   decoration: BoxDecoration(
-                    color: _currentPage == index
-                        ? theme.colorScheme.primary
-                        : Colors.grey.shade300,
+                    color: _currentPage == index ? theme.colorScheme.primary : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ),
             ),
           ),
-
-          // Botão Principal
           Positioned(
-            bottom: 30,
-            left: 20,
-            right: 20,
+            bottom: 30, left: 20, right: 20,
             child: ElevatedButton(
-              // Lógica de Bloqueio: Se for a última página E não aceitou, desabilita (null)
               onPressed: (_currentPage == pages.length - 1 && !_termsAccepted)
                   ? null 
                   : () {
                       if (_currentPage == pages.length - 1) {
                         _finishOnboarding();
                       } else {
-                        _controller.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.ease,
-                        );
+                        _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
                       }
                     },
               style: ElevatedButton.styleFrom(
@@ -104,10 +90,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: Text(
-                _currentPage == pages.length - 1 ? 'Começar' : 'Próximo',
-                style: const TextStyle(fontSize: 18),
-              ),
+              child: Text(_currentPage == pages.length - 1 ? 'Continuar' : 'Próximo'),
             ),
           ),
         ],
@@ -115,13 +98,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // Página comum
-  Widget _buildPage({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    bool isPrivacy = false,
-  }) {
+  Widget _buildPage({required String title, required String subtitle, required IconData icon, bool isPrivacy = false}) {
     return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Column(
@@ -137,10 +114,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             OutlinedButton.icon(
               icon: const Icon(Icons.description),
               label: const Text('Ler Política'),
-              onPressed: () => showDialog(
-                context: context,
-                builder: (_) => const PolicyDialog(title: 'Política', content: privacyPolicyContent),
-              ),
+              onPressed: () => showDialog(context: context, builder: (_) => const PolicyDialog(title: 'Política', content: privacyPolicyContent)),
             ),
           ],
         ],
@@ -148,7 +122,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // Última página com o Checkbox Obrigatório
   Widget _buildLastPage(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.all(32.0),
@@ -159,25 +132,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
           const SizedBox(height: 32),
           const Text('Tudo Pronto!', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          const Text(
-            'Para continuar, você precisa aceitar nossos termos de uso e política de privacidade.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
+          const Text('Para continuar, aceite nossos termos.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey)),
           const SizedBox(height: 40),
-          // Checkbox Obrigatório
           CheckboxListTile(
             value: _termsAccepted,
             title: const Text('Li e aceito os Termos de Uso e Política de Privacidade.'),
             activeColor: theme.colorScheme.primary,
             controlAffinity: ListTileControlAffinity.leading,
-            onChanged: (bool? value) {
-              setState(() {
-                _termsAccepted = value ?? false;
-              });
-            },
+            onChanged: (val) => setState(() => _termsAccepted = val ?? false),
           ),
-          const SizedBox(height: 60), // Espaço para o botão
+          const SizedBox(height: 60),
         ],
       ),
     );

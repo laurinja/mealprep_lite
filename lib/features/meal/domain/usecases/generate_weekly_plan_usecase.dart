@@ -1,5 +1,6 @@
 import '../entities/refeicao.dart';
 import '../repositories/meal_repository.dart';
+import 'dart:math';
 
 class GenerateWeeklyPlanUseCase {
   final MealRepository repository;
@@ -7,15 +8,41 @@ class GenerateWeeklyPlanUseCase {
   GenerateWeeklyPlanUseCase(this.repository);
 
   Future<List<Refeicao>> call(Set<String> preferencias) async {
-    final todasRefeicoes = await repository.getRefeicoes();
-    
+    final allMeals = await repository.getRefeicoes();
+
+    List<Refeicao> filtradas;
     if (preferencias.isEmpty) {
-      return (todasRefeicoes..shuffle()).take(3).toList();
+      filtradas = allMeals;
+    } else {
+      filtradas = allMeals.where((meal) {
+        return meal.tagIds.any((tag) => preferencias.contains(tag));
+      }).toList();
     }
 
-    final filtradas = todasRefeicoes.where((refeicao) {
-      return preferencias.every((pref) => refeicao.tagIds.contains(pref));
-    }).toList();
-    return (filtradas..shuffle()).take(3).toList();
+    if (filtradas.isEmpty) {
+      return [];
+    }
+
+    final Map<String, List<Refeicao>> refeicoesPorTipo = {};
+    for (var meal in filtradas) {
+      if (!refeicoesPorTipo.containsKey(meal.tipo)) {
+        refeicoesPorTipo[meal.tipo] = [];
+      }
+      refeicoesPorTipo[meal.tipo]!.add(meal);
+    }
+
+    final List<Refeicao> planoFinal = [];
+    final random = Random();
+
+    for (var tipo in refeicoesPorTipo.keys) {
+      final opcoesDoTipo = refeicoesPorTipo[tipo]!;
+      if (opcoesDoTipo.isNotEmpty) {
+        final escolhida = opcoesDoTipo[random.nextInt(opcoesDoTipo.length)];
+        planoFinal.add(escolhida);
+      }
+    }
+    
+
+    return planoFinal;
   }
 }
