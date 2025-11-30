@@ -8,6 +8,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 import '../features/meal/domain/entities/refeicao.dart';
 import '../features/meal/presentation/controllers/meal_controller.dart';
+import '../features/meal/presentation/dialogs/meal_actions_dialog.dart'; // Import do novo diálogo
 import '../services/prefs_service.dart';
 import '../widgets/app_drawer.dart';
 
@@ -61,6 +62,54 @@ class _HomePageState extends State<HomePage> {
 
   void _gerarPlano() {
     context.read<MealController>().gerarPlano(_preferenciasSelecionadas);
+  }
+
+  // --- Handlers de Ação ---
+
+  void _showActionsDialog(Refeicao refeicao) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Exigido pelo prompt: não fechar ao tocar fora
+      builder: (context) {
+        return MealActionsDialog(
+          onEdit: () => _handleEdit(refeicao),
+          onRemove: () => _handleRemoveConfirmation(refeicao),
+        );
+      },
+    );
+  }
+
+  void _handleEdit(Refeicao refeicao) {
+    // TODO: Implementar showMealFormDialog aqui futuramente
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Editar refeição: ${refeicao.nome}')),
+    );
+  }
+
+  void _handleRemoveConfirmation(Refeicao refeicao) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar Remoção'),
+        content: Text('Tem certeza que deseja remover "${refeicao.nome}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // TODO: Chamar controller.removeMeal(refeicao.id) futuramente
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Refeição removida (simulação)')),
+              );
+            },
+            child: const Text('Remover', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -125,11 +174,18 @@ class _HomePageState extends State<HomePage> {
               else if (mealController.planoSemanal.isNotEmpty)
                 ...mealController.planoSemanal.map((r) => Card(
                   margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(child: Text(r.tipo[0])),
-                    title: Text(r.nome),
-                    subtitle: Text(r.tipo),
-                    trailing: const Icon(Icons.check_circle_outline),
+                  child: InkWell( // Adicionado InkWell para gestos
+                    onLongPress: () => _showActionsDialog(r), // Aciona o diálogo
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0), // Padding movido para dentro do InkWell
+                      child: ListTile(
+                        leading: CircleAvatar(child: Text(r.tipo[0])),
+                        title: Text(r.nome),
+                        subtitle: Text(r.tipo),
+                        trailing: const Icon(Icons.more_vert), // Indicador visual de ações
+                      ),
+                    ),
                   ),
                 ))
               else
