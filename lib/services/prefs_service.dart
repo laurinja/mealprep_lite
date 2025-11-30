@@ -1,32 +1,29 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PrefsService {
-  static late SharedPreferences _prefs;
+  final SharedPreferences _prefs;
+
+  PrefsService(this._prefs);
 
   static Future<PrefsService> init() async {
-    _prefs = await SharedPreferences.getInstance();
-    return PrefsService();
+    final prefs = await SharedPreferences.getInstance();
+    return PrefsService(prefs);
   }
 
-  // ---------- Onboarding ----------
-  bool getOnboardingCompleted() => _prefs.getBool('onboarding_completed') ?? false;
-  Future<void> setOnboardingCompleted(bool value) async =>
-      _prefs.setBool('onboarding_completed', value);
+  // Chaves
+  static const _keyOnboarding = 'onboarding_completed';
+  static const _keyConsent = 'marketing_consent';
+  static const _keyPhoto = 'user_photo_path';
 
-  // ---------- Consentimento ----------
-  bool getMarketingConsent() => _prefs.getBool('marketing_consent') ?? false;
-  Future<void> setMarketingConsent(bool value) async =>
-      _prefs.setBool('marketing_consent', value);
+  bool get onboardingCompleted => _prefs.getBool(_keyOnboarding) ?? false;
+  Future<void> setOnboardingCompleted(bool value) => _prefs.setBool(_keyOnboarding, value);
 
-  // ---------- Avatar ----------
-  String? getUserPhotoPath() => _prefs.getString('user_photo_path');
-  Future<void> setUserPhotoPath(String path) async =>
-      _prefs.setString('user_photo_path', path);
+  bool get marketingConsent => _prefs.getBool(_keyConsent) ?? false;
+  Future<void> setMarketingConsent(bool value) => _prefs.setBool(_keyConsent, value);
 
-  Future<void> removeUserPhotoPath() async =>
-      _prefs.remove('user_photo_path');
-  
-  // --- Debug ---
-  Future<void> clearAll() async =>
-      _prefs.clear();
+  String? get userPhotoPath => _prefs.getString(_keyPhoto);
+  Future<void> setUserPhotoPath(String path) => _prefs.setString(_keyPhoto, path);
+  Future<void> removeUserPhotoPath() => _prefs.remove(_keyPhoto);
+
+  Future<void> clearAll() => _prefs.clear();
 }

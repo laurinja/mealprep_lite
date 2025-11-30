@@ -1,59 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'services/meal_service.dart';
+
+// Layers
+import 'features/meal/data/datasources/meal_local_datasource.dart';
+import 'features/meal/data/repositories/meal_repository_impl.dart';
+import 'features/meal/domain/usecases/generate_weekly_plan_usecase.dart';
+import 'features/meal/presentation/controllers/meal_controller.dart';
+
+// Core & Services
 import 'services/prefs_service.dart';
+
+// Pages
 import 'pages/splash_page.dart';
-import 'pages/home_page.dart';
 import 'pages/onboarding_page.dart';
-import 'pages/settings_page.dart'; // Importa a nova página
+import 'pages/home_page.dart';
+import 'pages/settings_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await PrefsService.init();
+  
+  final prefsService = await PrefsService.init();
+
+  // Dependências da Feature Meal
+  final mealDataSource = MealLocalDataSourceImpl();
+  final mealRepository = MealRepositoryImpl(mealDataSource);
+  final generateWeeklyPlanUseCase = GenerateWeeklyPlanUseCase(mealRepository);
+  final mealController = MealController(generateWeeklyPlanUseCase);
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => MealService(),
-      child: MealPrepLiteApp(prefs: prefs),
+    MultiProvider(
+      providers: [
+        // Injetando Serviços Globais
+        Provider<PrefsService>.value(value: prefsService),
+        // Injetando Controller da Feature Meal
+        ChangeNotifierProvider.value(value: mealController),
+      ],
+      child: const MealPrepLiteApp(),
     ),
   );
 }
 
 class MealPrepLiteApp extends StatelessWidget {
-  final PrefsService prefs;
-  const MealPrepLiteApp({super.key, required this.prefs});
+  const MealPrepLiteApp({super.key});
 
   static const green = Color(0xFF22C55E);
-  static const cream = Color(0xFFFEF3C7);
   static const brown = Color(0xFF78350F);
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: green,
-      primary: green,
-      secondary: brown,
-      background: Colors.white,
-      surface: Colors.white,
-    );
-
     return MaterialApp(
-      title: 'MealPrep Lite — Planejamento de refeições',
+      title: 'MealPrep Lite',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: colorScheme,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: green,
+          primary: green,
+          secondary: brown,
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: brown,
           foregroundColor: Colors.white,
         ),
       ),
-      debugShowCheckedModeBanner: false,
       initialRoute: '/',
       routes: {
-        '/': (ctx) => SplashPage(prefs: prefs),
-        '/onboarding': (ctx) => OnboardingPage(prefs: prefs),
-        '/home': (ctx) => HomePage(prefs: prefs),
-        '/settings': (ctx) => SettingsPage(prefs: prefs), // Adiciona a nova rota
+        '/': (ctx) => const SplashPage(),
+        '/onboarding': (ctx) => const OnboardingPage(),
+        '/home': (ctx) => const HomePage(),
+        '/settings': (ctx) => const SettingsPage(),
       },
     );
   }
