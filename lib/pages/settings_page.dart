@@ -26,27 +26,31 @@ class SettingsPage extends StatelessWidget {
             leading: const Icon(Icons.delete_forever, color: Colors.red),
             title: const Text('Revogar Consentimento', style: TextStyle(color: Colors.red)),
             subtitle: const Text('Apagar dados e retirar permissões'),
-            onTap: () => _confirmRevocation(context, prefs),
+            onTap: () => _handleRevocation(context, prefs),
           ),
         ],
       ),
     );
   }
 
-  void _confirmRevocation(BuildContext context, PrefsService prefs) {
+  void _handleRevocation(BuildContext context, PrefsService prefs) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tem certeza?'),
-        content: const Text('Isso removerá seu acesso ao app até que você aceite os termos novamente.'),
+        title: const Text('Revogar Consentimento?'),
+        content: const Text('Isso apagará suas preferências e removerá seu acesso ao app.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             child: const Text('Revogar', style: TextStyle(color: Colors.red)),
             onPressed: () async {
               Navigator.pop(ctx); 
               
-              final bool wasOnboardingDone = prefs.onboardingCompleted;
+              final backupOnboarding = prefs.onboardingCompleted;
+              final backupConsent = prefs.marketingConsent;
               
               await prefs.clearAll(); 
               
@@ -54,15 +58,15 @@ class SettingsPage extends StatelessWidget {
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: const Text('Consentimento revogado e dados limpos.'),
+                  content: const Text('Consentimento revogado.'),
+                  duration: const Duration(seconds: 4),
                   action: SnackBarAction(
                     label: 'DESFAZER',
                     onPressed: () async {
-                      await prefs.setOnboardingCompleted(wasOnboardingDone);
-                      await prefs.setMarketingConsent(true); 
+                      await prefs.setOnboardingCompleted(backupOnboarding);
+                      await prefs.setMarketingConsent(backupConsent);
                     },
                   ),
-                  duration: const Duration(seconds: 4),
                 ),
               ).closed.then((reason) {
                 if (reason != SnackBarClosedReason.action && context.mounted) {
