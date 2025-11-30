@@ -7,70 +7,61 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final prefs = context.watch<PrefsService>();
-
     return Scaffold(
       appBar: AppBar(title: const Text('Configurações')),
       body: ListView(
         children: [
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Refazer Onboarding'),
-            subtitle: const Text('Visualizar a introdução novamente'),
-            onTap: () {
-              Navigator.of(context).pushNamedAndRemoveUntil('/onboarding', (route) => false);
-            },
-          ),
-          const Divider(),
+          // A opção "Refazer Onboarding" foi removida daqui.
+          
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text('Revogar Consentimento', style: TextStyle(color: Colors.red)),
-            subtitle: const Text('Apagar dados e retirar permissões'),
-            onTap: () => _handleRevocation(context, prefs),
+            title: const Text(
+              'Revogar Consentimento e Conta', 
+              style: TextStyle(color: Colors.red)
+            ),
+            subtitle: const Text('Apagar todos os dados e sair'),
+            onTap: () => _handleRevocation(context),
           ),
+          const Divider(),
         ],
       ),
     );
   }
 
-  void _handleRevocation(BuildContext context, PrefsService prefs) {
+  void _handleRevocation(BuildContext context) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Revogar Consentimento?'),
-        content: const Text('Isso apagará suas preferências e removerá seu acesso ao app.'),
+        title: const Text('Tem certeza?'),
+        content: const Text(
+          'Isso apagará seu perfil, preferências e histórico. Você voltará para a tela inicial.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancelar'),
           ),
           TextButton(
-            child: const Text('Revogar', style: TextStyle(color: Colors.red)),
+            child: const Text('REVOGAR TUDO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             onPressed: () async {
-              Navigator.pop(ctx); 
+              Navigator.pop(ctx);
               
-              final backupOnboarding = prefs.onboardingCompleted;
-              final backupConsent = prefs.marketingConsent;
-              
+              final prefs = context.read<PrefsService>();
               await prefs.clearAll(); 
               
               if (!context.mounted) return;
 
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Consentimento revogado.'),
-                  duration: const Duration(seconds: 4),
-                  action: SnackBarAction(
-                    label: 'DESFAZER',
-                    onPressed: () async {
-                      await prefs.setOnboardingCompleted(backupOnboarding);
-                      await prefs.setMarketingConsent(backupConsent);
-                    },
-                  ),
+                const SnackBar(
+                  content: Text('Dados apagados. Reiniciando...'),
+                  duration: Duration(seconds: 2),
                 ),
-              ).closed.then((reason) {
-                if (reason != SnackBarClosedReason.action && context.mounted) {
-                   Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+              );
+
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
                 }
               });
             },

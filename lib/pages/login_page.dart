@@ -12,28 +12,59 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  final _passwordController = TextEditingController(); // Novo Controller
   
-  // Variável para controlar se é Login ou Cadastro
+  final _formKey = GlobalKey<FormState>();
   bool _isLogin = true; 
+  bool _obscurePassword = true; // Controla visibilidade da senha
 
   void _submit() async {
-    if (_formKey.currentState!.validate()) {
-      final prefs = context.read<PrefsService>();
-      
-      // Salva os dados (seja login ou cadastro, no modo local a lógica é a mesma: salvar)
-      await prefs.setUserName(_nameController.text.trim());
-      await prefs.setUserEmail(_emailController.text.trim());
+    if (!_formKey.currentState!.validate()) return;
+
+    final prefs = context.read<PrefsService>();
+    final inputEmail = _emailController.text.trim();
+    final inputPass = _passwordController.text.trim();
+    final inputName = _nameController.text.trim();
+
+    if (_isLogin) {
+      // --- MODO LOGIN (Validar) ---
+      final storedEmail = prefs.userEmail;
+      final storedPass = prefs.userPassword;
+
+      // Verifica se existe conta
+      if (storedEmail.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nenhuma conta encontrada. Crie uma conta primeiro.'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      // Valida credenciais
+      if (inputEmail == storedEmail && inputPass == storedPass) {
+        await prefs.setLoggedIn(true);
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Bem-vindo de volta!'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email ou senha incorretos.'), backgroundColor: Colors.red),
+        );
+      }
+
+    } else {
+      // --- MODO CRIAR CONTA (Salvar) ---
+      await prefs.setUserName(inputName);
+      await prefs.setUserEmail(inputEmail);
+      await prefs.setUserPassword(inputPass); // Salva a senha
       await prefs.setLoggedIn(true);
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
-        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isLogin ? 'Bem-vindo de volta!' : 'Conta criada com sucesso!'),
-            backgroundColor: Colors.green,
-          )
+          const SnackBar(content: Text('Conta criada com sucesso!'), backgroundColor: Colors.green),
         );
       }
     }
@@ -42,6 +73,7 @@ class _LoginPageState extends State<LoginPage> {
   void _toggleAuthMode() {
     setState(() {
       _isLogin = !_isLogin;
+      _formKey.currentState?.reset(); // Limpa erros ao trocar
     });
   }
 
@@ -74,24 +106,28 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _isLogin ? 'Insira seus dados para entrar.' : 'Preencha os dados para começar.',
+                      _isLogin ? 'Entre com seu email e senha.' : 'Preencha os dados para começar.',
                       style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 24),
                     
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
+                    // Campo Nome (Apenas no cadastro)
+                    if (!_isLogin) ...[
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nome',
+                          prefixIcon: Icon(Icons.person),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) => value == null || value.trim().isEmpty 
+                            ? 'Por favor, digite seu nome' 
+                            : null,
                       ),
-                      validator: (value) => value == null || value.trim().isEmpty 
-                          ? 'Por favor, digite seu nome' 
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                    ],
                     
+                    // Campo Email
                     TextFormField(
                       controller: _emailController,
                       decoration: const InputDecoration(
@@ -104,9 +140,28 @@ class _LoginPageState extends State<LoginPage> {
                           ? 'Digite um email válido' 
                           : null,
                     ),
+                    const SizedBox(height: 16),
+
+                    // Campo Senha (NOVO)
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Senha',
+                        prefixIcon: const Icon(Icons.lock),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
+                      validator: (value) => value == null || value.length < 4 
+                          ? 'A senha deve ter pelo menos 4 caracteres' 
+                          : null,
+                    ),
                     const SizedBox(height: 24),
                     
-                    // Botão Principal (Entrar ou Cadastrar)
+                    // Botão Principal
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -123,7 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                     
                     const SizedBox(height: 16),
                     
-                    // Botão de Alternância
+                    // Alternar Login/Cadastro
                     TextButton(
                       onPressed: _toggleAuthMode,
                       child: Text(
