@@ -2,8 +2,9 @@ class RefeicaoDTO {
   final String id;
   final String nome;
   final String tipo;
-  final List<String> tagIds; // Corrigido para camelCase
-  final List<String> ingredienteIds; // Corrigido para camelCase
+  final List<String> tagIds;
+  final List<String> ingredienteIds;
+  final String? imageUrl;
 
   RefeicaoDTO({
     required this.id,
@@ -11,6 +12,7 @@ class RefeicaoDTO {
     required this.tipo,
     required this.tagIds,
     required this.ingredienteIds,
+    this.imageUrl,
   });
 
   factory RefeicaoDTO.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class RefeicaoDTO {
       tipo: json['tipo'] as String,
       tagIds: List<String>.from(json['tag_ids'] ?? []),
       ingredienteIds: List<String>.from(json['ingrediente_ids'] ?? []),
+      imageUrl: json['image_url'] as String?,
     );
   }
 
@@ -30,6 +33,7 @@ class RefeicaoDTO {
       'tipo': tipo,
       'tag_ids': tagIds,
       'ingrediente_ids': ingredienteIds,
+      'image_url': imageUrl,
     };
   }
 }

@@ -1,3 +1,4 @@
+// Imports essenciais
 import '../../domain/entities/refeicao.dart';
 import '../dtos/refeicao_dto.dart';
 
@@ -9,6 +10,7 @@ class RefeicaoMapper {
       tipo: dto.tipo,
       tagIds: dto.tagIds,
       ingredienteIds: dto.ingredienteIds,
+      imageUrl: dto.imageUrl,
     );
   }
 
@@ -19,6 +21,7 @@ class RefeicaoMapper {
       tipo: entity.tipo,
       tagIds: entity.tagIds,
       ingredienteIds: entity.ingredienteIds,
+      imageUrl: entity.imageUrl,
     );
   }
 }
