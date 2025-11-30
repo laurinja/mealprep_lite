@@ -23,8 +23,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
     await prefs.setOnboardingCompleted(true);
     await prefs.setMarketingConsent(true);
     
-    // MUDANÇA: Vai para o Login agora
     if (mounted) Navigator.pushReplacementNamed(context, '/login');
+  }
+
+  void _nextPage() {
+    _controller.nextPage(
+      duration: const Duration(milliseconds: 300), 
+      curve: Curves.ease
+    );
+  }
+
+  void _previousPage() {
+    _controller.previousPage(
+      duration: const Duration(milliseconds: 300), 
+      curve: Curves.ease
+    );
   }
 
   @override
@@ -53,6 +66,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
             onPageChanged: (i) => setState(() => _currentPage = i),
             children: pages,
           ),
+          
+          // Indicador de Páginas (Dots)
           Positioned(
             bottom: 100,
             left: 0, right: 0,
@@ -73,24 +88,44 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
           ),
+
+          // Botões de Navegação (Voltar e Próximo)
           Positioned(
             bottom: 30, left: 20, right: 20,
-            child: ElevatedButton(
-              onPressed: (_currentPage == pages.length - 1 && !_termsAccepted)
-                  ? null 
-                  : () {
-                      if (_currentPage == pages.length - 1) {
-                        _finishOnboarding();
-                      } else {
-                        _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: Text(_currentPage == pages.length - 1 ? 'Continuar' : 'Próximo'),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Botão VOLTAR (Só aparece se não for a primeira página)
+                if (_currentPage > 0)
+                  TextButton(
+                    onPressed: _previousPage,
+                    child: const Text('Voltar', style: TextStyle(fontSize: 16)),
+                  )
+                else
+                  const SizedBox(width: 60), // Espaço vazio para manter alinhamento
+
+                // Botão PRÓXIMO / COMEÇAR
+                ElevatedButton(
+                  onPressed: (_currentPage == pages.length - 1 && !_termsAccepted)
+                      ? null 
+                      : () {
+                          if (_currentPage == pages.length - 1) {
+                            _finishOnboarding();
+                          } else {
+                            _nextPage();
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  ),
+                  child: Text(
+                    _currentPage == pages.length - 1 ? 'Continuar' : 'Próximo',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
