@@ -1,31 +1,27 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/prefs_service.dart';
 
 class AppDrawer extends StatelessWidget {
- 
+  
+  final String? userPhotoPath;
   final VoidCallback onEditAvatarPressed;
 
   const AppDrawer({
     super.key,
     required this.onEditAvatarPressed,
+    this.userPhotoPath,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
-    
-    final prefs = context.watch<PrefsService>();
-    final userPhotoPath = prefs.userPhotoPath;
 
     return Drawer(
       child: Column(
         children: [
           UserAccountsDrawerHeader(
             decoration: BoxDecoration(color: theme.colorScheme.secondary),
-            
             accountName: const Text(
               'Estudante MealPrep', 
               style: TextStyle(fontWeight: FontWeight.bold)
@@ -35,10 +31,10 @@ class AppDrawer extends StatelessWidget {
               onTap: onEditAvatarPressed,
               child: CircleAvatar(
                 backgroundColor: Colors.white,
-                backgroundImage: userPhotoPath != null 
-                    ? FileImage(File(userPhotoPath)) 
+                backgroundImage: userPhotoPath != null && userPhotoPath!.isNotEmpty
+                    ? FileImage(File(userPhotoPath!)) 
                     : null,
-                child: userPhotoPath == null
+                child: userPhotoPath == null || userPhotoPath!.isEmpty
                     ? Icon(Icons.person, size: 40, color: theme.colorScheme.primary)
                     : null,
               ),

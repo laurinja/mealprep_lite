@@ -7,8 +7,9 @@ class RefeicaoMapper {
       id: dto.id,
       nome: dto.nome,
       tipo: dto.tipo,
-      tagIds: dto.tag_ids,
-      ingredienteIds: dto.ingrediente_ids,
+      // Agora acessamos as propriedades em camelCase do DTO
+      tagIds: dto.tagIds, 
+      ingredienteIds: dto.ingredienteIds,
     );
   }
 
@@ -17,8 +18,9 @@ class RefeicaoMapper {
       id: entity.id,
       nome: entity.nome,
       tipo: entity.tipo,
-      tag_ids: entity.tagIds,
-      ingrediente_ids: entity.ingredienteIds,
+      // Passamos os valores para o construtor atualizado (camelCase)
+      tagIds: entity.tagIds,
+      ingredienteIds: entity.ingredienteIds,
     );
   }
 }
