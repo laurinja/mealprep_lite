@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 class PolicyDialog extends StatefulWidget {
   final String title;
   final String content;
-  
+
   const PolicyDialog({super.key, required this.title, required this.content});
 
   @override
@@ -15,22 +15,34 @@ class PolicyDialog extends StatefulWidget {
 class _PolicyDialogState extends State<PolicyDialog> {
   final ScrollController _scrollController = ScrollController();
   bool _reachedEnd = false;
+  double _readingProgress = 0.0;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients && 
+      if (_scrollController.hasClients &&
           _scrollController.position.maxScrollExtent == 0) {
-        setState(() => _reachedEnd = true);
+        setState(() {
+          _reachedEnd = true;
+          _readingProgress = 1.0;
+        });
       }
     });
   }
 
   void _onScroll() {
-    if (!_reachedEnd &&
-        _scrollController.offset >= _scrollController.position.maxScrollExtent - 20) {
+    if (!_scrollController.hasClients) return;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    
+    setState(() {
+      _readingProgress = (currentScroll / maxScroll).clamp(0.0, 1.0);
+    });
+
+    if (!_reachedEnd && currentScroll >= maxScroll - 20) {
       setState(() => _reachedEnd = true);
     }
   }
@@ -44,35 +56,35 @@ class _PolicyDialogState extends State<PolicyDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!_reachedEnd)
-            LinearProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
-              backgroundColor: Colors.grey[300],
-            ),
+          Text(widget.title),
           const SizedBox(height: 8),
-          Flexible(
-            child: SizedBox(
-              width: double.maxFinite,
-              child: Scrollbar(
-                controller: _scrollController,
-                thumbVisibility: true,
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  child: MarkdownBody(
-                    data: widget.content,
-                    onTapLink: (text, href, title) {
-                      if (href != null) launchUrl(Uri.parse(href));
-                    },
-                  ),
-                ),
-              ),
+          LinearProgressIndicator(
+            value: _readingProgress,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(
+              _reachedEnd ? Colors.green : Theme.of(context).primaryColor,
             ),
           ),
         ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Scrollbar(
+          thumbVisibility: true,
+          controller: _scrollController,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            child: MarkdownBody(
+              data: widget.content,
+              onTapLink: (text, href, title) {
+                if (href != null) launchUrl(Uri.parse(href));
+              },
+            ),
+          ),
+        ),
       ),
       actions: [
         TextButton(
