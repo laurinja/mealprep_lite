@@ -18,11 +18,18 @@ class RefeicaoDTO {
       id: json['id'] as String,
       nome: json['nome'] as String,
       tipo: json['tipo'] as String,
-      // Mapeando do JSON (snake_case) para a propriedade (camelCase)
       tagIds: List<String>.from(json['tag_ids'] ?? []),
       ingredienteIds: List<String>.from(json['ingrediente_ids'] ?? []),
     );
   }
-  
-  // Ajustar o toJson e o Mapper correspondente também...
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nome': nome,
+      'tipo': tipo,
+      'tag_ids': tagIds,
+      'ingrediente_ids': ingredienteIds,
+    };
+  }
 }

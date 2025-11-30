@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,7 +7,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 import '../features/meal/domain/entities/refeicao.dart';
 import '../features/meal/presentation/controllers/meal_controller.dart';
-import '../features/meal/presentation/dialogs/meal_actions_dialog.dart'; // Import do novo diálogo
+import '../features/meal/presentation/dialogs/meal_actions_dialog.dart';
 import '../services/prefs_service.dart';
 import '../widgets/app_drawer.dart';
 
@@ -22,17 +21,23 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final Set<String> _preferenciasSelecionadas = {};
   final List<String> _todasPreferencias = ['Rápido', 'Saudável', 'Vegetariano'];
+  
   String? _userPhotoPath;
+  String _userName = '';
+  String _userEmail = '';
 
   @override
   void initState() {
     super.initState();
-    _loadPhoto();
+    _loadUserData();
   }
 
-  void _loadPhoto() {
+  void _loadUserData() {
+    final prefs = context.read<PrefsService>();
     setState(() {
-      _userPhotoPath = context.read<PrefsService>().userPhotoPath;
+      _userPhotoPath = prefs.userPhotoPath;
+      _userName = prefs.userName;
+      _userEmail = prefs.userEmail;
     });
   }
 
@@ -48,41 +53,68 @@ class _HomePageState extends State<HomePage> {
       final XFile? result = await FlutterImageCompress.compressAndGetFile(
         pickedFile.path,
         targetPath,
-        minWidth: 512,
-        minHeight: 512,
-        quality: 80,
+        minWidth: 512, minHeight: 512, quality: 80,
       );
 
       if (result != null) {
         await context.read<PrefsService>().setUserPhotoPath(result.path);
-        _loadPhoto();
+        _loadUserData();
       }
     }
+  }
+
+  void _editProfileDialog() {
+    final nameCtrl = TextEditingController(text: _userName);
+    final emailCtrl = TextEditingController(text: _userEmail);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar Perfil'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nome')),
+            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final prefs = context.read<PrefsService>();
+              await prefs.setUserName(nameCtrl.text);
+              await prefs.setUserEmail(emailCtrl.text);
+              _loadUserData();
+              if (mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _gerarPlano() {
     context.read<MealController>().gerarPlano(_preferenciasSelecionadas);
   }
 
-  // --- Handlers de Ação ---
-
   void _showActionsDialog(Refeicao refeicao) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Exigido pelo prompt: não fechar ao tocar fora
       builder: (context) {
         return MealActionsDialog(
-          onEdit: () => _handleEdit(refeicao),
+          onEdit: () => _handleSwap(refeicao), 
           onRemove: () => _handleRemoveConfirmation(refeicao),
         );
       },
     );
   }
 
-  void _handleEdit(Refeicao refeicao) {
-    // TODO: Implementar showMealFormDialog aqui futuramente
+  void _handleSwap(Refeicao refeicao) {
+    context.read<MealController>().trocarRefeicao(refeicao);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Editar refeição: ${refeicao.nome}')),
+      const SnackBar(content: Text('Buscando substituição...')),
     );
   }
 
@@ -91,23 +123,50 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Confirmar Remoção'),
-        content: Text('Tem certeza que deseja remover "${refeicao.nome}"?'),
+        content: Text('Deseja remover "${refeicao.nome}" do plano?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // TODO: Chamar controller.removeMeal(refeicao.id) futuramente
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Refeição removida (simulação)')),
-              );
+              context.read<MealController>().removerRefeicao(refeicao.id);
             },
             child: const Text('Remover', style: TextStyle(color: Colors.red)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showIngredients(Refeicao refeicao) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(refeicao.nome, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text('Ingredientes:', style: Theme.of(context).textTheme.titleMedium),
+            const Divider(),
+            if (refeicao.ingredienteIds.isEmpty)
+              const Text('Nenhum ingrediente listado.')
+            else
+              ...refeicao.ingredienteIds.map((ing) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text(ing),
+                  ],
+                ),
+              )),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -125,7 +184,10 @@ class _HomePageState extends State<HomePage> {
           ),
           endDrawer: AppDrawer(
             userPhotoPath: _userPhotoPath,
+            userName: _userName,
+            userEmail: _userEmail,
             onEditAvatarPressed: _pickImage,
+            onEditProfilePressed: _editProfileDialog,
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
@@ -158,10 +220,11 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 20),
+              
               ElevatedButton.icon(
                 onPressed: _gerarPlano,
                 icon: const Icon(Icons.restaurant_menu),
-                label: const Text('Gerar Cardápio'),
+                label: Text(mealController.planoSemanal.isEmpty ? 'Gerar Cardápio' : 'Gerar Novo Cardápio'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: Colors.white,
@@ -169,27 +232,49 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 20),
+
               if (mealController.isLoading)
                 const Center(child: CircularProgressIndicator())
               else if (mealController.planoSemanal.isNotEmpty)
                 ...mealController.planoSemanal.map((r) => Card(
                   margin: const EdgeInsets.only(bottom: 8),
-                  child: InkWell( // Adicionado InkWell para gestos
-                    onLongPress: () => _showActionsDialog(r), // Aciona o diálogo
+                  child: InkWell(
+                    onTap: () => _showIngredients(r), 
+                    onLongPress: () => _showActionsDialog(r), 
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.all(8.0), // Padding movido para dentro do InkWell
+                      padding: const EdgeInsets.all(8.0),
                       child: ListTile(
-                        leading: CircleAvatar(child: Text(r.tipo[0])),
-                        title: Text(r.nome),
-                        subtitle: Text(r.tipo),
-                        trailing: const Icon(Icons.more_vert), // Indicador visual de ações
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                          child: Text(r.tipo[0], style: TextStyle(color: theme.colorScheme.primary)),
+                        ),
+                        title: Text(r.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(r.tipo),
+                            const SizedBox(height: 4),
+                            // Mostra tags como texto pequeno
+                            Text(r.tagIds.join(', '), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          ],
+                        ),
+                        trailing: const Icon(Icons.more_vert),
                       ),
                     ),
                   ),
                 ))
               else
-                const Center(child: Text('Nenhum plano gerado.', style: TextStyle(color: Colors.grey))),
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text(
+                      'Seu plano está vazio.\nSelecione preferências e gere um cardápio!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
             ],
           ),
         );

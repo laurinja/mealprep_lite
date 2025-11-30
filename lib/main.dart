@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// Layers
 import 'features/meal/data/datasources/meal_local_datasource.dart';
 import 'features/meal/data/repositories/meal_repository_impl.dart';
 import 'features/meal/domain/usecases/generate_weekly_plan_usecase.dart';
 import 'features/meal/presentation/controllers/meal_controller.dart';
 
-// Core & Services
 import 'services/prefs_service.dart';
 
-// Pages
 import 'pages/splash_page.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/home_page.dart';
@@ -21,18 +18,20 @@ void main() async {
   
   final prefsService = await PrefsService.init();
 
-  // Dependências da Feature Meal
   final mealDataSource = MealLocalDataSourceImpl();
   final mealRepository = MealRepositoryImpl(mealDataSource);
   final generateWeeklyPlanUseCase = GenerateWeeklyPlanUseCase(mealRepository);
-  final mealController = MealController(generateWeeklyPlanUseCase);
+
+  final mealController = MealController(
+    generateWeeklyPlanUseCase,
+    mealRepository,
+    prefsService,
+  );
 
   runApp(
     MultiProvider(
       providers: [
-        // Injetando Serviços Globais
         Provider<PrefsService>.value(value: prefsService),
-        // Injetando Controller da Feature Meal
         ChangeNotifierProvider.value(value: mealController),
       ],
       child: const MealPrepLiteApp(),
