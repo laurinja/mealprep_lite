@@ -18,7 +18,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   // Função para ir para o Login (Chamada na última tela)
   void _goToLogin() async {
-    // Salva o estado de "Onboarding Concluído"
     final prefs = context.read<PrefsService>();
     await prefs.setOnboardingCompleted(true);
     await prefs.setMarketingConsent(true);
@@ -44,7 +43,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
-    // As 4 Telas
     final List<Widget> pages = [
       // 0: Bem-vindo
       _buildPage(
@@ -60,17 +58,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
       ),
       // 2: Políticas (Obrigatório aceitar aqui)
       _buildPolicyPage(theme),
-      // 3: Tudo Pronto (Botão verde de navegação some aqui)
+      // 3: Tudo Pronto
       _buildReadyPage(theme), 
     ];
 
-    // Verifica se é a última página para esconder o botão de navegação inferior
+    // Verifica se é a última página
     bool isLastPage = _currentPage == pages.length - 1;
 
     return Scaffold(
       body: Stack(
         children: [
-          // Conteúdo das Páginas
           PageView(
             controller: _controller,
             onPageChanged: (i) => setState(() => _currentPage = i),
@@ -81,37 +78,41 @@ class _OnboardingPageState extends State<OnboardingPage> {
             children: pages,
           ),
           
-          // Indicador de Pontinhos (Dots) - Sobe um pouco se for a última pág
-          Positioned(
-            bottom: isLastPage ? 140 : 100, 
-            left: 0, right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                pages.length,
-                (index) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  height: 8,
-                  width: _currentPage == index ? 24 : 8,
-                  decoration: BoxDecoration(
-                    color: _currentPage == index ? theme.colorScheme.primary : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(4),
+          // --- INDICADORES DE PÁGINA (BOLINHAS) ---
+          // AQUI ESTÁ A MUDANÇA: Só exibe se NÃO for a última página
+          if (!isLastPage)
+            Positioned(
+              bottom: 100, 
+              left: 0, right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  pages.length,
+                  (index) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    height: 8,
+                    // Esconde visualmente a bolinha da última página se ela for renderizada na lista,
+                    // ou apenas deixa transparente para não quebrar a lógica de índices.
+                    // Mas como estamos escondendo o bloco todo com o if(!isLastPage), isso é seguro.
+                    width: _currentPage == index ? 24 : 8,
+                    decoration: BoxDecoration(
+                      color: _currentPage == index ? theme.colorScheme.primary : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
 
-          // BARRA DE NAVEGAÇÃO INFERIOR (Voltar / Próximo)
-          // Só mostramos se NÃO for a última página ("Tudo Pronto")
+          // --- BARRA DE NAVEGAÇÃO INFERIOR (Voltar / Próximo) ---
+          // Também só aparece se não for a última página
           if (!isLastPage)
             Positioned(
               bottom: 30, left: 20, right: 20,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Botão Voltar (Esconde na primeira pág)
                   if (_currentPage > 0)
                     TextButton(
                       onPressed: _previousPage,
@@ -120,10 +121,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   else
                     const SizedBox(width: 60),
 
-                  // Botão Próximo (Bloqueia na pág de termos se não aceitou)
                   ElevatedButton(
                     onPressed: (_currentPage == 2 && !_termsAccepted)
-                        ? null // Desabilita se não aceitou termos
+                        ? null 
                         : _nextPage,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
@@ -140,7 +140,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // Widget para páginas comuns
   Widget _buildPage({required String title, required String subtitle, required IconData icon}) {
     return Padding(
       padding: const EdgeInsets.all(32.0),
@@ -157,7 +156,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // TELA 3: Políticas
   Widget _buildPolicyPage(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.all(32.0),
@@ -178,15 +176,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
           OutlinedButton.icon(
             icon: const Icon(Icons.description),
             label: const Text('Ler Documentos'),
-            onPressed: () => showDialog(
-              context: context, 
-              builder: (_) => const PolicyDialog(title: 'Termos', content: privacyPolicyContent + '\n\n' + termsOfUseContent)
-            ),
+            onPressed: () async {
+              final result = await showDialog<bool>(
+                context: context, 
+                builder: (_) => const PolicyDialog(
+                  title: 'Termos', 
+                  content: privacyPolicyContent + '\n\n' + termsOfUseContent
+                )
+              );
+
+              if (result == true) {
+                setState(() {
+                  _termsAccepted = true;
+                });
+              }
+            },
           ),
           
           const SizedBox(height: 40),
           
-          // Checkbox Obrigatório
           CheckboxListTile(
             value: _termsAccepted,
             title: const Text('Li e concordo com os Termos de Uso e Política de Privacidade.'),
@@ -200,7 +208,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // TELA 4: Tudo Pronto (Sem botão de navegação embaixo)
   Widget _buildReadyPage(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.all(32.0),
@@ -218,7 +225,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           const SizedBox(height: 60),
           
-          // Botão GRANDE e ÚNICO no meio da tela
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

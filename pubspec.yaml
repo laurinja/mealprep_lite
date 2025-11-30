@@ -21,6 +21,7 @@ dependencies:
   flutter_markdown: ^0.7.7+1
   url_launcher: ^6.3.2
   path: ^1.9.1
+  supabase_flutter: ^2.10.3
 
 dev_dependencies:
   flutter_test:
@@ -29,6 +30,7 @@ dev_dependencies:
   
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.6
+  
 
 flutter:
   uses-material-design: true
