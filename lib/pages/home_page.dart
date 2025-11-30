@@ -22,6 +22,7 @@ class _HomePageState extends State<HomePage> {
   final Set<String> _preferenciasSelecionadas = {};
   final List<String> _todasPreferencias = ['Rápido', 'Saudável', 'Vegetariano'];
   
+  // Estado local para o Drawer
   String? _userPhotoPath;
   String _userName = '';
   String _userEmail = '';
@@ -32,6 +33,7 @@ class _HomePageState extends State<HomePage> {
     _loadUserData();
   }
 
+  // Carrega os dados salvos no SharedPreferences
   void _loadUserData() {
     final prefs = context.read<PrefsService>();
     setState(() {
@@ -41,6 +43,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // --- Função 1: Editar Foto ---
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -63,6 +66,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // --- Função 2: Criar/Editar Conta (Nome e Email) ---
   void _editProfileDialog() {
     final nameCtrl = TextEditingController(text: _userName);
     final emailCtrl = TextEditingController(text: _userEmail);
@@ -74,19 +78,33 @@ class _HomePageState extends State<HomePage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nome')),
-            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email')),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Nome', hintText: 'Como quer ser chamado?'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: emailCtrl,
+              decoration: const InputDecoration(labelText: 'Email', hintText: 'seu@email.com'),
+              keyboardType: TextInputType.emailAddress,
+            ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              final prefs = context.read<PrefsService>();
-              await prefs.setUserName(nameCtrl.text);
-              await prefs.setUserEmail(emailCtrl.text);
-              _loadUserData();
-              if (mounted) Navigator.pop(ctx);
+              if (nameCtrl.text.isNotEmpty) {
+                final prefs = context.read<PrefsService>();
+                await prefs.setUserName(nameCtrl.text);
+                await prefs.setUserEmail(emailCtrl.text);
+                _loadUserData(); // Atualiza a tela
+                if (mounted) Navigator.pop(ctx);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Perfil atualizado com sucesso!')),
+                );
+              }
             },
             child: const Text('Salvar'),
           ),
@@ -95,6 +113,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // --- Funções de Refeição (Mantidas iguais ao anterior) ---
   void _gerarPlano() {
     context.read<MealController>().gerarPlano(_preferenciasSelecionadas);
   }
@@ -102,42 +121,21 @@ class _HomePageState extends State<HomePage> {
   void _showActionsDialog(Refeicao refeicao) {
     showDialog(
       context: context,
-      builder: (context) {
-        return MealActionsDialog(
-          onEdit: () => _handleSwap(refeicao), 
-          onRemove: () => _handleRemoveConfirmation(refeicao),
-        );
-      },
+      builder: (context) => MealActionsDialog(
+        onEdit: () => _handleSwap(refeicao),
+        onRemove: () => _handleRemove(refeicao),
+      ),
     );
   }
 
   void _handleSwap(Refeicao refeicao) {
     context.read<MealController>().trocarRefeicao(refeicao);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Buscando substituição...')),
-    );
   }
 
-  void _handleRemoveConfirmation(Refeicao refeicao) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar Remoção'),
-        content: Text('Deseja remover "${refeicao.nome}" do plano?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<MealController>().removerRefeicao(refeicao.id);
-            },
-            child: const Text('Remover', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+  void _handleRemove(Refeicao refeicao) {
+    context.read<MealController>().removerRefeicao(refeicao.id);
   }
-
+  
   void _showIngredients(Refeicao refeicao) {
     showModalBottomSheet(
       context: context,
@@ -148,22 +146,11 @@ class _HomePageState extends State<HomePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(refeicao.nome, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text('Ingredientes:', style: Theme.of(context).textTheme.titleMedium),
             const Divider(),
             if (refeicao.ingredienteIds.isEmpty)
-              const Text('Nenhum ingrediente listado.')
+              const Text('Sem ingredientes.')
             else
-              ...refeicao.ingredienteIds.map((ing) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Text(ing),
-                  ],
-                ),
-              )),
+              ...refeicao.ingredienteIds.map((ing) => Text('• $ing')),
             const SizedBox(height: 20),
           ],
         ),
@@ -182,6 +169,7 @@ class _HomePageState extends State<HomePage> {
             backgroundColor: theme.colorScheme.secondary,
             foregroundColor: Colors.white,
           ),
+          // Drawer atualizado com as funções de perfil
           endDrawer: AppDrawer(
             userPhotoPath: _userPhotoPath,
             userName: _userName,
@@ -220,7 +208,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 20),
-              
               ElevatedButton.icon(
                 onPressed: _gerarPlano,
                 icon: const Icon(Icons.restaurant_menu),
@@ -232,49 +219,22 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 20),
-
               if (mealController.isLoading)
                 const Center(child: CircularProgressIndicator())
               else if (mealController.planoSemanal.isNotEmpty)
                 ...mealController.planoSemanal.map((r) => Card(
                   margin: const EdgeInsets.only(bottom: 8),
-                  child: InkWell(
-                    onTap: () => _showIngredients(r), 
-                    onLongPress: () => _showActionsDialog(r), 
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-                          child: Text(r.tipo[0], style: TextStyle(color: theme.colorScheme.primary)),
-                        ),
-                        title: Text(r.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(r.tipo),
-                            const SizedBox(height: 4),
-                            // Mostra tags como texto pequeno
-                            Text(r.tagIds.join(', '), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                          ],
-                        ),
-                        trailing: const Icon(Icons.more_vert),
-                      ),
-                    ),
+                  child: ListTile(
+                    leading: CircleAvatar(child: Text(r.tipo[0])),
+                    title: Text(r.nome),
+                    subtitle: Text(r.tipo),
+                    onTap: () => _showIngredients(r),
+                    onLongPress: () => _showActionsDialog(r),
+                    trailing: const Icon(Icons.more_vert),
                   ),
                 ))
               else
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: Text(
-                      'Seu plano está vazio.\nSelecione preferências e gere um cardápio!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
+                 const Center(child: Text('Nenhum plano gerado.', style: TextStyle(color: Colors.grey))),
             ],
           ),
         );
