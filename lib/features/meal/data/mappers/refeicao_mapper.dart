@@ -2,7 +2,6 @@ import '../../domain/entities/refeicao.dart';
 import '../dtos/refeicao_dto.dart';
 
 class RefeicaoMapper {
-  
   Refeicao toEntity(RefeicaoDTO dto) {
     return Refeicao(
       id: dto.id,

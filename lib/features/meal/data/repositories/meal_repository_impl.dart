@@ -5,12 +5,15 @@ import '../mappers/refeicao_mapper.dart';
 
 class MealRepositoryImpl implements MealRepository {
   final MealLocalDataSource dataSource;
+  
+  final RefeicaoMapper _mapper = RefeicaoMapper();
 
   MealRepositoryImpl(this.dataSource);
 
   @override
   Future<List<Refeicao>> getRefeicoes() async {
     final dtos = await dataSource.getAllMeals();
-    return dtos.map(RefeicaoMapper.toEntity).toList();
+    
+    return dtos.map((dto) => _mapper.toEntity(dto)).toList();
   }
 }
