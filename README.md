@@ -48,7 +48,8 @@ flutter pub run
 lib/features/: Código dividido por funcionalidades (Meal, User, Tag).
 lib/pages/: Telas (Home, Login, Onboarding).
 lib/services/: Serviços globais (PrefsService, Armazenamento Local).
-
+```
 ### Autora
 Laura bareto
-laurabareto@alunos.utfpr.edu.br
+* ** email: laurabareto@alunos.utfpr.edu.br
+
