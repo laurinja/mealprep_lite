@@ -51,5 +51,5 @@ lib/services/: Serviços globais (PrefsService, Armazenamento Local).
 ```
 ### Autora
 Laura bareto
-* ** email: laurabareto@alunos.utfpr.edu.br
+*  email: laurabareto@alunos.utfpr.edu.br
 
