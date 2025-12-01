@@ -23,7 +23,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   final Set<String> _preferencias = {};
   final List<String> _todasPreferencias = ['Rápido', 'Saudável', 'Vegetariano'];
   
-  // Dados do usuário
   String? _userPhotoPath;
   String _userName = '';
   String _userEmail = '';
@@ -31,7 +30,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this); // Segunda a Sábado
+    _tabController = TabController(length: 6, vsync: this); 
     _loadUserData();
   }
 
@@ -44,15 +43,54 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
   }
 
-  // (Mantenha aqui as funções _pickImage e _editProfileDialog do código anterior)
-  // ... [CÓDIGO DE PERFIL IDÊNTICO AO ANTERIOR] ...
-  // Para economizar espaço na resposta, assuma que _pickImage e _editProfileDialog
-  // estão aqui exatamente como antes.
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600);
+      if (pickedFile != null) {
+        final dir = await getApplicationDocumentsDirectory();
+        final name = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final targetPath = p.join(dir.path, name);
+        final XFile? result = await FlutterImageCompress.compressAndGetFile(
+          pickedFile.path, targetPath, minWidth: 500, minHeight: 500, quality: 85);
+        if (result != null) {
+          await Provider.of<PrefsService>(context, listen: false).setUserPhotoPath(result.path);
+          _loadUserData();
+        }
+      }
+    } catch (e) { debugPrint('Erro foto: $e'); }
+  }
 
-  Future<void> _pickImage() async { /* ... Copiar do anterior ... */ }
-  void _editProfileDialog() { /* ... Copiar do anterior ... */ }
+  void _editProfileDialog() {
+    final nameCtrl = TextEditingController(text: _userName);
+    final emailCtrl = TextEditingController(text: _userEmail);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar Perfil'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nome')),
+          const SizedBox(height: 16),
+          TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email', filled: true, fillColor: Colors.black12), readOnly: true, enabled: false),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isNotEmpty) {
+                final prefs = context.read<PrefsService>();
+                await prefs.setUserName(nameCtrl.text.trim());
+                _loadUserData();
+                if (mounted) Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
 
-  // Nova função para gerar a semana toda
   void _gerarSemana() {
     context.read<MealController>().generateFullWeek(_preferencias);
   }
@@ -60,7 +98,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final days = MealController.daysOfWeek; // ['Segunda', 'Terça'...]
+    final days = MealController.daysOfWeek; 
 
     return Consumer<MealController>(
       builder: (context, controller, _) {
@@ -87,7 +125,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
           body: Column(
             children: [
-              // Barra de Ações Rápidas (Preferências + Botão Gerar)
+              // Barra de Filtros e Ação
               Container(
                 padding: const EdgeInsets.all(12),
                 color: theme.colorScheme.surface,
@@ -113,17 +151,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         onPressed: _gerarSemana,
                         icon: const Icon(Icons.auto_awesome),
                         label: const Text('Gerar Semana Completa'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: Colors.white,
-                        ),
+                        style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary, foregroundColor: Colors.white),
                       ),
                     ),
                   ],
                 ),
               ),
               
-              // Conteúdo das Abas (Dias da Semana)
               Expanded(
                 child: controller.isLoading 
                   ? const Center(child: CircularProgressIndicator())
@@ -131,7 +165,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       controller: _tabController,
                       children: days.map((day) {
                         final mealsForDay = controller.weeklyPlan[day] ?? {};
-                        return _buildDayView(day, mealsForDay);
+                        return _buildDayView(day, mealsForDay, controller);
                       }).toList(),
                     ),
               ),
@@ -142,8 +176,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildDayView(String day, Map<String, Refeicao> meals) {
-    final types = MealController.mealTypes; // Café, Almoço, Jantar
+  // Passamos o controller aqui para acessar o método regenerateSlot
+  Widget _buildDayView(String day, Map<String, Refeicao> meals, MealController controller) {
+    final types = MealController.mealTypes;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -154,18 +189,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Cabeçalho do Slot (Ex: Almoço)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                ),
+                decoration: BoxDecoration(color: Colors.grey[200], borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
                 child: Text(type, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
-              
-              // Conteúdo do Slot
               if (meal != null)
                 ListTile(
                   leading: ClipRRect(
@@ -178,25 +207,40 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   subtitle: Text(meal.tagIds.join(', ')),
                   trailing: IconButton(
                     icon: const Icon(Icons.refresh),
+                    tooltip: 'Trocar prato',
                     onPressed: () {
-                      // Aqui você implementaria a troca individual
-                      // context.read<MealController>().regenerateSlot(day, type);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Use "Gerar Semana" para trocar tudo por enquanto.')));
+                      // Chama a nova função de troca única
+                      controller.regenerateSlot(day, type, _preferencias);
+                      
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Trocando ${type.toLowerCase()}...'), duration: const Duration(milliseconds: 500))
+                      );
                     },
                   ),
+                  onTap: () => _showIngredients(meal),
                 )
               else
                 ListTile(
-                  title: const Text('Vazio', style: TextStyle(color: Colors.grey)),
+                  title: const Text('Vazio - Gere um cardápio', style: TextStyle(color: Colors.grey)),
                   trailing: const Icon(Icons.add_circle_outline),
-                  onTap: () {
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gere a semana automaticamente acima!')));
-                  },
                 ),
             ],
           ),
         );
       }).toList(),
     );
+  }
+
+  void _showIngredients(Refeicao r) {
+    showModalBottomSheet(context: context, builder: (_) => Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(r.nome, style: Theme.of(context).textTheme.headlineSmall),
+        const Divider(),
+        if (r.ingredienteIds.isEmpty) const Text('Sem ingredientes.') else ...r.ingredienteIds.map((i) => Text('• $i')),
+        const SizedBox(height: 20),
+      ]),
+    ));
   }
 }
