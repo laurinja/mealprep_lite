@@ -43,12 +43,6 @@ cd mealprep_lite
 flutter pub get
 flutter pub run
 ```
-## Estrutura
-
-lib/features/: Código dividido por funcionalidades (Meal, User, Tag).
-lib/pages/: Telas (Home, Login, Onboarding).
-lib/services/: Serviços globais (PrefsService, Armazenamento Local).
-
 ### Autora
 Laura bareto
 *  email: laurabareto@alunos.utfpr.edu.br
