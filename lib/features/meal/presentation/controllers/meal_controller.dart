@@ -28,11 +28,8 @@ class MealController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. SINCRONIZA O CATÁLOGO (Esta é a correção!)
-      // Baixa as novas fotos/pratos do Supabase e atualiza o cache local
       await _repository.syncRefeicoes(); 
 
-      // 2. Agora busca do cache (que já estará atualizado)
       final allMeals = await _repository.getRefeicoes();
       final savedMap = _prefsService.getWeeklyPlanMap();
       
@@ -50,7 +47,6 @@ class MealController extends ChangeNotifier {
         }
       }
       
-      // 3. Sincroniza dados do usuário
       _syncWithCloud();
 
     } catch (e) {
@@ -61,7 +57,6 @@ class MealController extends ChangeNotifier {
     }
   }
 
-  // --- MÉTODOS DE GERAÇÃO (MANTIDOS IGUAIS) ---
 
   Future<void> generateDay(String day, Set<String> preferences) async {
     _isLoading = true;
@@ -126,7 +121,6 @@ class MealController extends ChangeNotifier {
     }
   }
 
-  // --- OUTROS MÉTODOS (REFRESH, AUTH...) ---
 
   Future<void> regenerateSlot(String day, String type, Set<String> preferences) async {
     notifyListeners();

@@ -5,7 +5,7 @@ class RefeicaoDTO {
   final List<String> tagIds;
   final List<String> ingredienteIds;
   final String? imageUrl;
-  final bool isDirty; // Controle local de sincronização
+  final bool isDirty;   
 
   RefeicaoDTO({
     required this.id,
@@ -22,7 +22,6 @@ class RefeicaoDTO {
       id: json['id'].toString(),
       nome: json['nome'] ?? '',
       tipo: json['tipo'] ?? '',
-      // Garante conversão segura de listas JSON
       tagIds: List<String>.from(json['tag_ids'] ?? []),
       ingredienteIds: List<String>.from(json['ingrediente_ids'] ?? []),
       imageUrl: json['image_url'],
