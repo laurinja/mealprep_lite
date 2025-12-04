@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // 1. IMPORTAR
 
 // Imports de camadas
 import 'features/meal/data/datasources/meal_local_datasource.dart';
@@ -21,10 +22,13 @@ import 'pages/settings_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 1. Inicializar Supabase (Coloque suas chaves aqui)
+  // 2. CARREGAR O ARQUIVO .ENV
+  await dotenv.load(fileName: ".env");
+
+  // 3. USAR AS VARIÁVEIS DE AMBIENTE
   await Supabase.initialize(
-    url: 'https://pzfdcqcepywatwhylgla.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6ZmRjcWNlcHl3YXR3aHlsZ2xhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1NDUyNzYsImV4cCI6MjA4MDEyMTI3Nn0.0N_xTxBccwdpwtzHykUPi-I0dM2Xn3qtsKbRq2--mhk',
+    url: dotenv.env['SUPABASE_URL'] ?? '', 
+    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
   // 2. Serviços Externos
@@ -35,7 +39,7 @@ void main() async {
   final mealRemoteDS = MealRemoteDataSource(Supabase.instance.client);
   final mealLocalDS = MealLocalDataSourceImpl(sharedPrefs);
 
-  // 4. Repositório
+  // 4. Repositório (Recebe Local + Remote)
   final mealRepository = MealRepositoryImpl(mealLocalDS, mealRemoteDS);
 
   // 5. Casos de Uso e Controllers
@@ -56,8 +60,11 @@ void main() async {
 class MealPrepLiteApp extends StatelessWidget {
   const MealPrepLiteApp({super.key});
 
-  static const green = Color(0xFF22C55E);
-  static const brown = Color(0xFF78350F);
+  // NOVA PALETA "FRESH & HEALTHY"
+  static const primaryGreen = Color(0xFF4CAF50); // Verde Material padrão (Equilibrado)
+  static const secondaryGreen = Color(0xFF8BC34A); // Verde claro/Limão (Energia)
+  static const darkGreen = Color(0xFF2E7D32); // Verde floresta (Para contrastes)
+  static const backgroundWhite = Color(0xFFFAFAFA); // Branco quase puro
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +73,46 @@ class MealPrepLiteApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: green, primary: green, secondary: brown),
-        appBarTheme: const AppBarTheme(backgroundColor: brown, foregroundColor: Colors.white),
+        // Define o esquema de cores base
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: primaryGreen,
+          primary: primaryGreen,
+          secondary: secondaryGreen,
+          surface: Colors.white, // Cards brancos
+          background: backgroundWhite,
+        ),
+        // Estilo da Barra Superior
+        appBarTheme: const AppBarTheme(
+          backgroundColor: primaryGreen, 
+          foregroundColor: Colors.white, // Texto branco
+          elevation: 0,
+          centerTitle: true,
+        ),
+        // Estilo dos Botões
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryGreen,
+            foregroundColor: Colors.white,
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        // Estilo dos Cards
+        cardTheme: CardTheme( 
+          color: Colors.white,
+          elevation: 2,
+          shadowColor: Colors.green.withOpacity(0.1), // Sombra levemente verde
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        
+        // Estilo dos Chips (Filtros)
+        chipTheme: ChipThemeData(
+          backgroundColor: Colors.grey[100],
+          selectedColor: secondaryGreen.withOpacity(0.3),
+          labelStyle: const TextStyle(color: Colors.black87),
+          secondaryLabelStyle: TextStyle(color: darkGreen),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       ),
       initialRoute: '/',
       routes: {

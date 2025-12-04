@@ -22,6 +22,7 @@ dependencies:
   url_launcher: ^6.3.2
   path: ^1.9.1
   supabase_flutter: ^2.10.3
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +37,7 @@ flutter:
   uses-material-design: true
   
   assets:
+    - .env
     - assets/
     - assets/images/
 
