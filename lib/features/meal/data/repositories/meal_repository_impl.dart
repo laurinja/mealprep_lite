@@ -42,7 +42,6 @@ class MealRepositoryImpl implements MealRepository {
   Future<void> syncUserProfile(String name, String email, String? photoPath) async {
     if (email.isEmpty) return;
     try {
-      // Nota: Não atualizamos a senha aqui para não sobrescrever com vazio durante o sync normal
       await _supabase.from('profiles').update({
         'name': name,
         'photo_url': photoPath,
@@ -71,59 +70,57 @@ class MealRepositoryImpl implements MealRepository {
     } catch (e) { debugPrint('Erro sync plan: $e'); }
   }
 
-  // --- IMPLEMENTAÇÃO DA AUTENTICAÇÃO REAL ---
+  @override
+  Future<Map<String, Map<String, String>>> fetchWeeklyPlan(String email) async {
+    if (email.isEmpty) return {};
+    try {
+      final response = await _supabase
+          .from('weekly_plans')
+          .select()
+          .eq('user_email', email);
+      
+      final Map<String, Map<String, String>> plan = {};
+      
+      for (var row in response) {
+        final day = row['day_of_week'] as String;
+        final type = row['meal_type'] as String;
+        final mealId = row['meal_id'] as String;
+        
+        if (!plan.containsKey(day)) plan[day] = {};
+        plan[day]![type] = mealId;
+      }
+      return plan;
+    } catch (e) {
+      debugPrint('Erro fetch plan: $e');
+      return {};
+    }
+  }
 
   @override
   Future<Map<String, dynamic>?> authenticateUser(String email, String password) async {
     try {
-      // Busca o usuário pelo email
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('email', email)
-          .maybeSingle(); // Retorna null se não encontrar
-
-      if (response == null) return null; // Usuário não existe
-
-      // Verifica a senha (Em produção real, use Auth do Supabase ou Hash, aqui é didático)
-      if (response['password'] == password) {
-        return response; // Retorna os dados do usuário
-      }
-    } catch (e) {
-      debugPrint('Erro login: $e');
-    }
-    return null; // Senha errada ou erro
+      final response = await _supabase.from('profiles').select().eq('email', email).maybeSingle();
+      if (response != null && response['password'] == password) return response;
+    } catch (e) { debugPrint('Erro login: $e'); }
+    return null;
   }
 
   @override
   Future<bool> registerUser(String name, String email, String password) async {
     try {
-      // Verifica se já existe
       final existing = await _supabase.from('profiles').select().eq('email', email).maybeSingle();
-      if (existing != null) return false; // Já existe
-
-      // Cria novo
+      if (existing != null) return false;
       await _supabase.from('profiles').insert({
-        'email': email,
-        'name': name,
-        'password': password, // Salvando no banco
-        'updated_at': DateTime.now().toIso8601String(),
+        'email': email, 'name': name, 'password': password, 'updated_at': DateTime.now().toIso8601String()
       });
       return true;
-    } catch (e) {
-      debugPrint('Erro cadastro: $e');
-      return false;
-    }
+    } catch (e) { debugPrint('Erro cadastro: $e'); return false; }
   }
 
   @override
   Future<void> deleteUserAccount(String email) async {
     try {
-      // O banco tem "ON DELETE CASCADE", então apagar o perfil apaga os planos também
       await _supabase.from('profiles').delete().eq('email', email);
-    } catch (e) {
-      debugPrint('Erro ao deletar conta: $e');
-      throw Exception('Não foi possível deletar a conta online.');
-    }
+    } catch (e) { throw Exception('Falha ao deletar conta'); }
   }
 }

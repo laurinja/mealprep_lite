@@ -28,13 +28,22 @@ class MealController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.syncRefeicoes(); 
-
+      await _repository.syncRefeicoes();
       final allMeals = await _repository.getRefeicoes();
-      final savedMap = _prefsService.getWeeklyPlanMap();
+      
+      var savedMap = _prefsService.getWeeklyPlanMap();
+      
+      if (savedMap.isEmpty && _prefsService.userEmail.isNotEmpty) {
+         debugPrint('Cache vazio. Tentando baixar plano da nuvem para ${_prefsService.userEmail}...');
+         savedMap = await _repository.fetchWeeklyPlan(_prefsService.userEmail);
+         
+         if (savedMap.isNotEmpty) {
+           await _prefsService.setWeeklyPlanMap(savedMap);
+           debugPrint('Plano recuperado da nuvem!');
+         }
+      }
       
       _weeklyPlan = {};
-      
       for (var day in daysOfWeek) {
         if (savedMap.containsKey(day)) {
           _weeklyPlan[day] = {};
@@ -47,7 +56,6 @@ class MealController extends ChangeNotifier {
         }
       }
       
-      _syncWithCloud();
 
     } catch (e) {
       debugPrint('Erro ao carregar plano: $e');
@@ -57,6 +65,7 @@ class MealController extends ChangeNotifier {
     }
   }
 
+  
 
   Future<void> generateDay(String day, Set<String> preferences) async {
     _isLoading = true;
@@ -64,9 +73,7 @@ class MealController extends ChangeNotifier {
     try {
       final allMeals = await _repository.getRefeicoes();
       var candidates = allMeals;
-      if (preferences.isNotEmpty) {
-        candidates = allMeals.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
-      }
+      if (preferences.isNotEmpty) candidates = allMeals.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
       if (candidates.isEmpty) candidates = allMeals;
 
       if (!_weeklyPlan.containsKey(day)) _weeklyPlan[day] = {};
@@ -91,9 +98,7 @@ class MealController extends ChangeNotifier {
     try {
       final allMeals = await _repository.getRefeicoes();
       var candidates = allMeals;
-      if (preferences.isNotEmpty) {
-        candidates = allMeals.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
-      }
+      if (preferences.isNotEmpty) candidates = allMeals.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
       if (candidates.isEmpty) candidates = allMeals;
 
       _weeklyPlan = {};
@@ -121,15 +126,13 @@ class MealController extends ChangeNotifier {
     }
   }
 
-
   Future<void> regenerateSlot(String day, String type, Set<String> preferences) async {
     notifyListeners();
     try {
       final allMeals = await _repository.getRefeicoes();
       var candidates = allMeals.where((m) => m.tipo == type).toList();
-      if (preferences.isNotEmpty) {
-        candidates = candidates.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
-      }
+      if (preferences.isNotEmpty) candidates = candidates.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
+      
       final currentMeal = _weeklyPlan[day]?[type];
       if (currentMeal != null) candidates.removeWhere((m) => m.id == currentMeal.id);
       
