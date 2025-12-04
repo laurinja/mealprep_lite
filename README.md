@@ -41,5 +41,6 @@
 ---
 
 👩‍💻 Autora
-Laura Bareto 📧 Email: laurabareto@alunos.utfpr.edu.br
+Laura Bareto 
+📧 Email: laurabareto@alunos.utfpr.edu.br
 
