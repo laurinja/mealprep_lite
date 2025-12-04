@@ -26,7 +26,7 @@ class RefeicaoDTO {
       tagIds: List<String>.from(json['tag_ids'] ?? []),
       ingredienteIds: List<String>.from(json['ingrediente_ids'] ?? []),
       imageUrl: json['image_url'],
-      isDirty: json['is_dirty'] ?? false, // Padrão é false (sincronizado)
+      isDirty: json['is_dirty'] ?? false, 
     );
   }
 

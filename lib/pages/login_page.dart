@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mealprep_lite/services/prefs_service.dart';
+import '../features/meal/presentation/controllers/meal_controller.dart'; // Para acessar o repositório
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,60 +13,97 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController(); // Novo Controller
+  final _passwordController = TextEditingController();
   
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = true; 
-  bool _obscurePassword = true; // Controla visibilidade da senha
+  bool _obscurePassword = true;
+  bool _isLoading = false;
 
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _isLoading = true);
+
     final prefs = context.read<PrefsService>();
+    // Acessamos o repositório através do Controller (ou Provider direto se tivesse)
+    final mealController = context.read<MealController>();
+    // Hack: Acesso ao repositório privado via getter público se existisse, 
+    // mas aqui vamos usar o controller que já tem acesso à lógica.
+    // O ideal seria ter um AuthController, mas vamos usar o repository injetado no main.
+    
+    // Como o repository está dentro do MealController, e é privado lá,
+    // o jeito mais limpo sem refatorar tudo é injetar o Repository no Login ou fazer a lógica aqui.
+    // Vamos assumir que você injetou o MealRepository no main e podemos acessá-lo via Provider se registrado,
+    // mas como ele está dentro do controller, vamos ter que instanciar ou passar.
+    
+    // CORREÇÃO RÁPIDA: Vamos usar a instância do Supabase direto aqui para facilitar,
+    // já que a lógica complexa está no Repo e não temos um AuthController separado.
+    // Mas para seguir o padrão, vamos usar o método que criamos no passo 3.
+    // *Nota: Para isso funcionar, precisamos expor o repositório no main ou no controller.*
+    
+    // Vamos assumir que o repositório foi passado ou acessível.
+    // Para simplificar seu copy-paste, vou usar a lógica do repositório aqui dentro:
+    
     final inputEmail = _emailController.text.trim();
     final inputPass = _passwordController.text.trim();
     final inputName = _nameController.text.trim();
 
+    // Precisamos acessar o repository. O jeito mais fácil no seu código atual 
+    // (sem criar novos providers) é acessar via MealController se expusermos ele, 
+    // ou criar uma instância temporária já que é stateless em termos de conexão.
+    // Melhor abordagem: Vamos usar o Controller para chamar essas ações.
+    
+    bool success = false;
+    String message = '';
+
     if (_isLogin) {
-      // --- MODO LOGIN (Validar) ---
-      final storedEmail = prefs.userEmail;
-      final storedPass = prefs.userPassword;
-
-      // Verifica se existe conta
-      if (storedEmail.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nenhuma conta encontrada. Crie uma conta primeiro.'), backgroundColor: Colors.red),
-        );
-        return;
-      }
-
-      // Valida credenciais
-      if (inputEmail == storedEmail && inputPass == storedPass) {
-        await prefs.setLoggedIn(true);
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bem-vindo de volta!'), backgroundColor: Colors.green),
-          );
+      // --- LOGIN: Consulta o Supabase ---
+      try {
+        final userData = await mealController.authenticate(inputEmail, inputPass);
+        
+        if (userData != null) {
+          // Sucesso! Salva no local para manter sessão
+          await prefs.setUserName(userData['name']);
+          await prefs.setUserEmail(userData['email']);
+          await prefs.setUserPassword(userData['password']);
+          await prefs.setLoggedIn(true);
+          success = true;
+          message = 'Bem-vindo de volta, ${userData['name']}!';
+        } else {
+          message = 'Email ou senha incorretos (verifique sua conexão).';
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email ou senha incorretos.'), backgroundColor: Colors.red),
-        );
+      } catch (e) {
+        message = 'Erro de conexão: $e';
       }
-
     } else {
-      // --- MODO CRIAR CONTA (Salvar) ---
-      await prefs.setUserName(inputName);
-      await prefs.setUserEmail(inputEmail);
-      await prefs.setUserPassword(inputPass); // Salva a senha
-      await prefs.setLoggedIn(true);
+      // --- CADASTRO: Tenta criar no Supabase ---
+      try {
+        final registered = await mealController.register(inputName, inputEmail, inputPass);
+        if (registered) {
+          // Sucesso! Salva local
+          await prefs.setUserName(inputName);
+          await prefs.setUserEmail(inputEmail);
+          await prefs.setUserPassword(inputPass);
+          await prefs.setLoggedIn(true);
+          success = true;
+          message = 'Conta criada com sucesso!';
+        } else {
+          message = 'Este email já está cadastrado.';
+        }
+      } catch (e) {
+        message = 'Erro ao criar conta.';
+      }
+    }
 
-      if (mounted) {
+    setState(() => _isLoading = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: success ? Colors.green : Colors.red),
+      );
+      if (success) {
         Navigator.pushReplacementNamed(context, '/home');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conta criada com sucesso!'), backgroundColor: Colors.green),
-        );
       }
     }
   }
@@ -73,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
   void _toggleAuthMode() {
     setState(() {
       _isLogin = !_isLogin;
-      _formKey.currentState?.reset(); // Limpa erros ao trocar
+      _formKey.currentState?.reset();
     });
   }
 
@@ -85,8 +123,6 @@ class _LoginPageState extends State<LoginPage> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Card(
-            elevation: 8,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
@@ -94,98 +130,54 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      _isLogin ? Icons.lock_open : Icons.person_add, 
-                      size: 64, 
-                      color: Colors.green
-                    ),
+                    Icon(_isLogin ? Icons.lock_open : Icons.person_add, size: 64, color: Colors.green),
                     const SizedBox(height: 16),
-                    Text(
-                      _isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _isLogin ? 'Entre com seu email e senha.' : 'Preencha os dados para começar.',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
+                    Text(_isLogin ? 'Login Online' : 'Criar Conta', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 24),
                     
-                    // Campo Nome (Apenas no cadastro)
                     if (!_isLogin) ...[
                       TextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nome',
-                          prefixIcon: Icon(Icons.person),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) => value == null || value.trim().isEmpty 
-                            ? 'Por favor, digite seu nome' 
-                            : null,
+                        decoration: const InputDecoration(labelText: 'Nome', prefixIcon: Icon(Icons.person), border: OutlineInputBorder()),
+                        validator: (v) => v!.isEmpty ? 'Nome obrigatório' : null,
                       ),
                       const SizedBox(height: 16),
                     ],
                     
-                    // Campo Email
                     TextFormField(
                       controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) => value == null || !value.contains('@') 
-                          ? 'Digite um email válido' 
-                          : null,
+                      decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email), border: OutlineInputBorder()),
+                      validator: (v) => !v!.contains('@') ? 'Email inválido' : null,
                     ),
                     const SizedBox(height: 16),
 
-                    // Campo Senha (NOVO)
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        labelText: 'Senha',
-                        prefixIcon: const Icon(Icons.lock),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
+                        labelText: 'Senha', prefixIcon: const Icon(Icons.lock), border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off), onPressed: () => setState(() => _obscurePassword = !_obscurePassword)),
                       ),
-                      validator: (value) => value == null || value.length < 4 
-                          ? 'A senha deve ter pelo menos 4 caracteres' 
-                          : null,
+                      validator: (v) => v!.length < 4 ? 'Mínimo 4 caracteres' : null,
                     ),
                     const SizedBox(height: 24),
                     
-                    // Botão Principal
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _submit,
+                        onPressed: _isLoading ? null : _submit,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)
                         ),
-                        child: Text(_isLogin ? 'ENTRAR' : 'CADASTRAR'),
+                        child: _isLoading 
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text(_isLogin ? 'ENTRAR' : 'CADASTRAR'),
                       ),
                     ),
                     
-                    const SizedBox(height: 16),
-                    
                     TextButton(
                       onPressed: _toggleAuthMode,
-                      child: Text(
-                        _isLogin 
-                          ? 'Não tem conta? Crie uma agora' 
-                          : 'Já tem conta? Faça login',
-                        style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                      ),
+                      child: Text(_isLogin ? 'Criar uma conta' : 'Já tenho conta'),
                     ),
                   ],
                 ),

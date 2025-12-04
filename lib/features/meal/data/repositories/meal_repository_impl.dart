@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Import necessário
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/refeicao.dart';
 import '../../domain/repositories/meal_repository.dart';
 import '../datasources/meal_local_datasource.dart';
@@ -10,7 +10,6 @@ class MealRepositoryImpl implements MealRepository {
   final MealLocalDataSource localDataSource;
   final MealRemoteDataSource remoteDataSource;
   final RefeicaoMapper _mapper = RefeicaoMapper();
-  // Cliente Supabase direto para operações extras (poderia estar no datasource, mas simplificamos aqui)
   final SupabaseClient _supabase = Supabase.instance.client;
 
   MealRepositoryImpl(this.localDataSource, this.remoteDataSource);
@@ -23,50 +22,44 @@ class MealRepositoryImpl implements MealRepository {
 
   @override
   Future<void> syncRefeicoes() async {
-    // ... (Mantenha sua lógica de sync de catálogo existente aqui) ...
-    // Vou resumir para focar nas novidades:
     try {
-      final remoteMeals = await remoteDataSource.getAll();
-      if (remoteMeals.isNotEmpty) {
-        await localDataSource.cacheMeals(remoteMeals);
+      final localDtos = await localDataSource.getCachedMeals();
+      final dirtyMeals = localDtos.where((e) => e.isDirty).toList();
+      if (dirtyMeals.isNotEmpty) {
+        for (var meal in dirtyMeals) {
+          try {
+            await remoteDataSource.update(meal);
+            await localDataSource.updateMealLocally(meal.copyWith(isDirty: false));
+          } catch (e) { debugPrint('Erro push: $e'); }
+        }
       }
-    } catch (e) {
-      debugPrint('Sync Refeicoes Error: $e');
-    }
+      final remoteMeals = await remoteDataSource.getAll();
+      if (remoteMeals.isNotEmpty) await localDataSource.cacheMeals(remoteMeals);
+    } catch (e) { debugPrint('Erro geral sync: $e'); }
   }
 
-  // --- 1. Sincronizar Perfil ---
   @override
   Future<void> syncUserProfile(String name, String email, String? photoPath) async {
     if (email.isEmpty) return;
     try {
-      await _supabase.from('profiles').upsert({
-        'email': email,
+      // Nota: Não atualizamos a senha aqui para não sobrescrever com vazio durante o sync normal
+      await _supabase.from('profiles').update({
         'name': name,
-        'photo_url': photoPath, // Em um app real, faríamos upload da imagem para o Storage primeiro
+        'photo_url': photoPath,
         'updated_at': DateTime.now().toIso8601String(),
-      });
-      debugPrint('✅ Perfil sincronizado com Supabase');
-    } catch (e) {
-      debugPrint('❌ Erro ao sincronizar perfil: $e');
-    }
+      }).eq('email', email);
+    } catch (e) { debugPrint('Erro sync profile: $e'); }
   }
 
-  // --- 2. Sincronizar Plano Semanal ---
   @override
   Future<void> syncWeeklyPlan(String email, Map<String, Map<String, String>> localPlan) async {
     if (email.isEmpty) return;
-    
     try {
-      // Estratégia simples: Apagar o plano antigo do usuário e subir o novo
-      // (Para produção, faríamos um diff mais inteligente)
       await _supabase.from('weekly_plans').delete().eq('user_email', email);
-
-      final List<Map<String, dynamic>> rowsToInsert = [];
-
+      final List<Map<String, dynamic>> rows = [];
       localPlan.forEach((day, mealsByType) {
         mealsByType.forEach((type, mealId) {
-          rowsToInsert.add({
+          rows.add({
             'user_email': email,
             'day_of_week': day,
             'meal_type': type,
@@ -74,13 +67,63 @@ class MealRepositoryImpl implements MealRepository {
           });
         });
       });
+      if (rows.isNotEmpty) await _supabase.from('weekly_plans').insert(rows);
+    } catch (e) { debugPrint('Erro sync plan: $e'); }
+  }
 
-      if (rowsToInsert.isNotEmpty) {
-        await _supabase.from('weekly_plans').insert(rowsToInsert);
+  // --- IMPLEMENTAÇÃO DA AUTENTICAÇÃO REAL ---
+
+  @override
+  Future<Map<String, dynamic>?> authenticateUser(String email, String password) async {
+    try {
+      // Busca o usuário pelo email
+      final response = await _supabase
+          .from('profiles')
+          .select()
+          .eq('email', email)
+          .maybeSingle(); // Retorna null se não encontrar
+
+      if (response == null) return null; // Usuário não existe
+
+      // Verifica a senha (Em produção real, use Auth do Supabase ou Hash, aqui é didático)
+      if (response['password'] == password) {
+        return response; // Retorna os dados do usuário
       }
-      debugPrint('✅ Plano semanal sincronizado (${rowsToInsert.length} itens)');
     } catch (e) {
-      debugPrint('❌ Erro ao sincronizar plano: $e');
+      debugPrint('Erro login: $e');
+    }
+    return null; // Senha errada ou erro
+  }
+
+  @override
+  Future<bool> registerUser(String name, String email, String password) async {
+    try {
+      // Verifica se já existe
+      final existing = await _supabase.from('profiles').select().eq('email', email).maybeSingle();
+      if (existing != null) return false; // Já existe
+
+      // Cria novo
+      await _supabase.from('profiles').insert({
+        'email': email,
+        'name': name,
+        'password': password, // Salvando no banco
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      return true;
+    } catch (e) {
+      debugPrint('Erro cadastro: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<void> deleteUserAccount(String email) async {
+    try {
+      // O banco tem "ON DELETE CASCADE", então apagar o perfil apaga os planos também
+      await _supabase.from('profiles').delete().eq('email', email);
+    } catch (e) {
+      debugPrint('Erro ao deletar conta: $e');
+      throw Exception('Não foi possível deletar a conta online.');
     }
   }
 }

@@ -21,9 +21,9 @@ import 'pages/settings_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 1. Inicializar Supabase (Coloque suas chaves aqui)
+  // 1. Inicializar Supabase (COLOQUE SUAS CHAVES AQUI)
   await Supabase.initialize(
-    url: 'https://pzfdcqcepywatwhylgla.supabase.co',
+    url: 'https://pzfdcqcepywatwhylgla.supabase.co', 
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6ZmRjcWNlcHl3YXR3aHlsZ2xhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1NDUyNzYsImV4cCI6MjA4MDEyMTI3Nn0.0N_xTxBccwdpwtzHykUPi-I0dM2Xn3qtsKbRq2--mhk',
   );
 
@@ -35,7 +35,7 @@ void main() async {
   final mealRemoteDS = MealRemoteDataSource(Supabase.instance.client);
   final mealLocalDS = MealLocalDataSourceImpl(sharedPrefs);
 
-  // 4. Repositório
+  // 4. Repositório (Recebe Local + Remote)
   final mealRepository = MealRepositoryImpl(mealLocalDS, mealRemoteDS);
 
   // 5. Casos de Uso e Controllers
