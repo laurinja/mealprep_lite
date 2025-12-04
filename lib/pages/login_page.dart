@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mealprep_lite/services/prefs_service.dart';
-import '../features/meal/presentation/controllers/meal_controller.dart'; // Para acessar o repositório
+import '../features/meal/presentation/controllers/meal_controller.dart'; 
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -26,44 +26,21 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     final prefs = context.read<PrefsService>();
-    // Acessamos o repositório através do Controller (ou Provider direto se tivesse)
     final mealController = context.read<MealController>();
-    // Hack: Acesso ao repositório privado via getter público se existisse, 
-    // mas aqui vamos usar o controller que já tem acesso à lógica.
-    // O ideal seria ter um AuthController, mas vamos usar o repository injetado no main.
-    
-    // Como o repository está dentro do MealController, e é privado lá,
-    // o jeito mais limpo sem refatorar tudo é injetar o Repository no Login ou fazer a lógica aqui.
-    // Vamos assumir que você injetou o MealRepository no main e podemos acessá-lo via Provider se registrado,
-    // mas como ele está dentro do controller, vamos ter que instanciar ou passar.
-    
-    // CORREÇÃO RÁPIDA: Vamos usar a instância do Supabase direto aqui para facilitar,
-    // já que a lógica complexa está no Repo e não temos um AuthController separado.
-    // Mas para seguir o padrão, vamos usar o método que criamos no passo 3.
-    // *Nota: Para isso funcionar, precisamos expor o repositório no main ou no controller.*
-    
-    // Vamos assumir que o repositório foi passado ou acessível.
-    // Para simplificar seu copy-paste, vou usar a lógica do repositório aqui dentro:
     
     final inputEmail = _emailController.text.trim();
     final inputPass = _passwordController.text.trim();
     final inputName = _nameController.text.trim();
 
-    // Precisamos acessar o repository. O jeito mais fácil no seu código atual 
-    // (sem criar novos providers) é acessar via MealController se expusermos ele, 
-    // ou criar uma instância temporária já que é stateless em termos de conexão.
-    // Melhor abordagem: Vamos usar o Controller para chamar essas ações.
-    
     bool success = false;
     String message = '';
 
     if (_isLogin) {
-      // --- LOGIN: Consulta o Supabase ---
+      // --- LOGIN ---
       try {
         final userData = await mealController.authenticate(inputEmail, inputPass);
         
         if (userData != null) {
-          // Sucesso! Salva no local para manter sessão
           await prefs.setUserName(userData['name']);
           await prefs.setUserEmail(userData['email']);
           await prefs.setUserPassword(userData['password']);
@@ -71,17 +48,16 @@ class _LoginPageState extends State<LoginPage> {
           success = true;
           message = 'Bem-vindo de volta, ${userData['name']}!';
         } else {
-          message = 'Email ou senha incorretos (verifique sua conexão).';
+          message = 'Email ou senha incorretos.';
         }
       } catch (e) {
         message = 'Erro de conexão: $e';
       }
     } else {
-      // --- CADASTRO: Tenta criar no Supabase ---
+      // --- CADASTRO ---
       try {
         final registered = await mealController.register(inputName, inputEmail, inputPass);
         if (registered) {
-          // Sucesso! Salva local
           await prefs.setUserName(inputName);
           await prefs.setUserEmail(inputEmail);
           await prefs.setUserPassword(inputPass);
@@ -151,14 +127,38 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 16),
 
+                    // --- CAMPO DE SENHA ATUALIZADO ---
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        labelText: 'Senha', prefixIcon: const Icon(Icons.lock), border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off), onPressed: () => setState(() => _obscurePassword = !_obscurePassword)),
+                        labelText: 'Senha', 
+                        prefixIcon: const Icon(Icons.lock), 
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off), 
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword)
+                        ),
+                        helperText: '6-15 caracteres (letras e números)',
+                        helperMaxLines: 2,
                       ),
-                      validator: (v) => v!.length < 4 ? 'Mínimo 4 caracteres' : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Senha obrigatória';
+                        }
+                        if (value.length < 6) {
+                          return 'Mínimo de 6 caracteres';
+                        }
+                        if (value.length > 15) {
+                          return 'Máximo de 15 caracteres';
+                        }
+                        // Regex: Apenas letras (a-z, A-Z) e números (0-9)
+                        final alphaNumeric = RegExp(r'^[a-zA-Z0-9]+$');
+                        if (!alphaNumeric.hasMatch(value)) {
+                          return 'Apenas letras e números (sem símbolos)';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 24),
                     
