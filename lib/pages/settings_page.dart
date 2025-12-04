@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/prefs_service.dart';
+import '../features/meal/presentation/controllers/meal_controller.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -11,59 +12,62 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Configurações')),
       body: ListView(
         children: [
-          // A opção "Refazer Onboarding" foi removida daqui.
-          
           ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text(
-              'Revogar Consentimento e Conta', 
-              style: TextStyle(color: Colors.red)
-            ),
-            subtitle: const Text('Apagar todos os dados e sair'),
-            onTap: () => _handleRevocation(context),
+            leading: const Icon(Icons.logout, color: Colors.orange),
+            title: const Text('Sair (Logout)'),
+            subtitle: const Text('Sair deste dispositivo'),
+            onTap: () async {
+              final prefs = context.read<PrefsService>();
+              await prefs.setLoggedIn(false); // Apenas desloga
+              if (context.mounted) Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            },
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.red),
+            title: const Text('Excluir Conta Permanentemente', style: TextStyle(color: Colors.red)),
+            subtitle: const Text('Apagar dados do banco e sair'),
+            onTap: () => _handleDeleteAccount(context),
+          ),
         ],
       ),
     );
   }
 
-  void _handleRevocation(BuildContext context) {
+  void _handleDeleteAccount(BuildContext context) {
+    final email = context.read<PrefsService>().userEmail;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tem certeza?'),
+        title: const Text('EXCLUIR CONTA?'),
         content: const Text(
-          'Isso apagará seu perfil, preferências e histórico. Você voltará para a tela inicial.',
+          'Esta ação é irreversível. Seus dados serão apagados dos nossos servidores.',
         ),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            child: const Text('REVOGAR TUDO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            child: const Text('EXCLUIR TUDO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             onPressed: () async {
               Navigator.pop(ctx);
               
-              final prefs = context.read<PrefsService>();
-              await prefs.clearAll(); 
-              
-              if (!context.mounted) return;
+              try {
+                // Chama a exclusão no banco via Controller
+                await context.read<MealController>().deleteAccount(email);
+                
+                if (!context.mounted) return;
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Conta excluída com sucesso.')),
+                );
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Dados apagados. Reiniciando...'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (context.mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                }
-              });
+                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erro ao excluir: $e')),
+                );
+              }
             },
           ),
         ],

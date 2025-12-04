@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:math'; // Necessário para Random e Shuffle
+import 'dart:math';
 import '../../domain/entities/refeicao.dart';
 import '../../domain/usecases/generate_weekly_plan_usecase.dart';
 import '../../domain/repositories/meal_repository.dart';
 import 'package:mealprep_lite/services/prefs_service.dart';
+import '../../../../core/constants/meal_types.dart';
 
 class MealController extends ChangeNotifier {
   final GenerateWeeklyPlanUseCase _generateUseCase;
@@ -11,8 +12,7 @@ class MealController extends ChangeNotifier {
   final PrefsService _prefsService;
 
   static const daysOfWeek = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-  static const mealTypes = ['Café da Manhã', 'Almoço', 'Jantar'];
-
+  
   Map<String, Map<String, Refeicao>> _weeklyPlan = {};
   Map<String, Map<String, Refeicao>> get weeklyPlan => _weeklyPlan;
 
@@ -28,6 +28,8 @@ class MealController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await _repository.syncRefeicoes(); 
+
       final allMeals = await _repository.getRefeicoes();
       final savedMap = _prefsService.getWeeklyPlanMap();
       
@@ -40,13 +42,13 @@ class MealController extends ChangeNotifier {
             try {
               final meal = allMeals.firstWhere((m) => m.id == id);
               _weeklyPlan[day]![type] = meal;
-            } catch (e) {
-              // Refeição não encontrada
-            }
+            } catch (_) {}
           });
         }
       }
+      
       _syncWithCloud();
+
     } catch (e) {
       debugPrint('Erro ao carregar plano: $e');
     } finally {
@@ -55,102 +57,117 @@ class MealController extends ChangeNotifier {
     }
   }
 
-  // --- NOVA LÓGICA DE GERAÇÃO SEMANAL (SEM REPETIÇÃO DESNECESSÁRIA) ---
-  Future<void> generateFullWeek(Set<String> preferences) async {
+
+  Future<void> generateDay(String day, Set<String> preferences) async {
     _isLoading = true;
     notifyListeners();
-
     try {
       final allMeals = await _repository.getRefeicoes();
-      
-      // Filtra candidatos globais
       var candidates = allMeals;
       if (preferences.isNotEmpty) {
         candidates = allMeals.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
       }
-      // Fallback: se o filtro for muito restritivo e não retornar nada, usa tudo
       if (candidates.isEmpty) candidates = allMeals;
 
-      // Inicializa o mapa
-      _weeklyPlan = {};
-      for (var day in daysOfWeek) {
-        _weeklyPlan[day] = {};
-      }
+      if (!_weeklyPlan.containsKey(day)) _weeklyPlan[day] = {};
+      final random = Random();
 
-      // Para cada tipo (Café, Almoço...), distribui as refeições
-      for (var type in mealTypes) {
-        // Pega todas as opções deste tipo (ex: todos os almoços disponíveis)
+      for (var type in MealTypes.values) {
         final options = candidates.where((m) => m.tipo == type).toList();
-        
         if (options.isNotEmpty) {
-          // Cria uma lista de distribuição. 
-          // Se tivermos 3 opções e 6 dias, a lista será [A, B, C, A, B, C] (embaralhada)
-          // Isso garante que A, B e C apareçam igualmente, em vez de sortear A, A, A, B, B, A.
-          List<Refeicao> distributionList = [];
-          
-          while (distributionList.length < daysOfWeek.length) {
-            // Embaralha as opções e adiciona na fila
-            final shuffled = List<Refeicao>.from(options)..shuffle();
-            distributionList.addAll(shuffled);
-          }
-          
-          // Atribui aos dias
-          for (int i = 0; i < daysOfWeek.length; i++) {
-            _weeklyPlan[daysOfWeek[i]]![type] = distributionList[i];
-          }
+          _weeklyPlan[day]![type] = options[random.nextInt(options.length)];
         }
       }
-
       await _saveLocalAndSync();
-
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // --- MÉTODO NOVO: REFRESH DE SLOT ÚNICO ---
-  Future<void> regenerateSlot(String day, String type, Set<String> preferences) async {
-    // Não ativa isLoading geral para não piscar a tela toda, apenas notifica
+  Future<void> generateFullWeek(Set<String> preferences) async {
+    _isLoading = true;
     notifyListeners();
-
     try {
       final allMeals = await _repository.getRefeicoes();
-      
-      // Filtra opções válidas para este slot
+      var candidates = allMeals;
+      if (preferences.isNotEmpty) {
+        candidates = allMeals.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
+      }
+      if (candidates.isEmpty) candidates = allMeals;
+
+      _weeklyPlan = {};
+      for (var day in daysOfWeek) {
+        _weeklyPlan[day] = {};
+      }
+
+      for (var type in MealTypes.values) {
+        final options = candidates.where((m) => m.tipo == type).toList();
+        if (options.isNotEmpty) {
+          List<Refeicao> distribution = [];
+          while (distribution.length < daysOfWeek.length) {
+            final shuffled = List<Refeicao>.from(options)..shuffle();
+            distribution.addAll(shuffled);
+          }
+          for (int i = 0; i < daysOfWeek.length; i++) {
+            _weeklyPlan[daysOfWeek[i]]![type] = distribution[i];
+          }
+        }
+      }
+      await _saveLocalAndSync();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+
+  Future<void> regenerateSlot(String day, String type, Set<String> preferences) async {
+    notifyListeners();
+    try {
+      final allMeals = await _repository.getRefeicoes();
       var candidates = allMeals.where((m) => m.tipo == type).toList();
-      
       if (preferences.isNotEmpty) {
         candidates = candidates.where((m) => m.tagIds.any((t) => preferences.contains(t))).toList();
       }
-      
-      // Tenta remover o prato atual das opções para garantir que mude
       final currentMeal = _weeklyPlan[day]?[type];
-      if (currentMeal != null) {
-        candidates.removeWhere((m) => m.id == currentMeal.id);
-      }
-
-      // Se removeu o único que tinha, restaura a lista (melhor repetir do que ficar vazio)
+      if (currentMeal != null) candidates.removeWhere((m) => m.id == currentMeal.id);
+      
       if (candidates.isEmpty) {
          candidates = allMeals.where((m) => m.tipo == type).toList();
-         // Se mesmo restaurando só tem 1 opção (a atual), não tem o que trocar
-         if (candidates.length == 1 && candidates.first.id == currentMeal?.id) {
-           return; // Não faz nada
-         }
+         if (candidates.length == 1 && candidates.first.id == currentMeal?.id) return;
       }
 
       if (candidates.isNotEmpty) {
         final random = Random();
         final newMeal = candidates[random.nextInt(candidates.length)];
-        
         if (!_weeklyPlan.containsKey(day)) _weeklyPlan[day] = {};
         _weeklyPlan[day]![type] = newMeal;
-        
         await _saveLocalAndSync();
       }
     } finally {
       notifyListeners();
     }
+  }
+
+  Future<List<Refeicao>> getAvailableMealsForSlot(String type, Set<String> preferences) async {
+    final allMeals = await _repository.getRefeicoes();
+    var options = allMeals.where((m) => m.tipo == type).toList();
+    if (preferences.isNotEmpty) {
+      options.sort((a, b) {
+        final aHas = a.tagIds.any((t) => preferences.contains(t)) ? 1 : 0;
+        final bHas = b.tagIds.any((t) => preferences.contains(t)) ? 1 : 0;
+        return bHas.compareTo(aHas);
+      });
+    }
+    return options;
+  }
+
+  Future<void> updateSlot(String day, String type, Refeicao selectedMeal) async {
+    if (!_weeklyPlan.containsKey(day)) _weeklyPlan[day] = {};
+    _weeklyPlan[day]![type] = selectedMeal;
+    notifyListeners();
+    await _saveLocalAndSync();
   }
 
   Future<void> _saveLocalAndSync() async {
@@ -161,7 +178,6 @@ class MealController extends ChangeNotifier {
         mapToSave[day]![type] = meal.id;
       });
     });
-
     await _prefsService.setWeeklyPlanMap(mapToSave);
     _syncWithCloud(mapToSave);
   }
@@ -172,5 +188,20 @@ class MealController extends ChangeNotifier {
     await _repository.syncUserProfile(name, email, _prefsService.userPhotoPath);
     final plan = mapToSave ?? _prefsService.getWeeklyPlanMap();
     await _repository.syncWeeklyPlan(email, plan);
+  }
+
+  Future<Map<String, dynamic>?> authenticate(String email, String password) async {
+    return await _repository.authenticateUser(email, password);
+  }
+
+  Future<bool> register(String name, String email, String password) async {
+    return await _repository.registerUser(name, email, password);
+  }
+
+  Future<void> deleteAccount(String email) async {
+    await _repository.deleteUserAccount(email);
+    await _prefsService.clearAll();
+    _weeklyPlan = {};
+    notifyListeners();
   }
 }

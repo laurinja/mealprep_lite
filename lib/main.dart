@@ -40,6 +40,7 @@ void main() async {
   final mealLocalDS = MealLocalDataSourceImpl(sharedPrefs);
 
   // 4. Repositório (Recebe Local + Remote)
+  // 4. Repositório (Recebe Local + Remote)
   final mealRepository = MealRepositoryImpl(mealLocalDS, mealRemoteDS);
 
   // 5. Casos de Uso e Controllers
@@ -60,6 +61,11 @@ void main() async {
 class MealPrepLiteApp extends StatelessWidget {
   const MealPrepLiteApp({super.key});
 
+  // NOVA PALETA "FRESH & HEALTHY"
+  static const primaryGreen = Color(0xFF4CAF50); // Verde Material padrão (Equilibrado)
+  static const secondaryGreen = Color(0xFF8BC34A); // Verde claro/Limão (Energia)
+  static const darkGreen = Color(0xFF2E7D32); // Verde floresta (Para contrastes)
+  static const backgroundWhite = Color(0xFFFAFAFA); // Branco quase puro
   // NOVA PALETA "FRESH & HEALTHY"
   static const primaryGreen = Color(0xFF4CAF50); // Verde Material padrão (Equilibrado)
   static const secondaryGreen = Color(0xFF8BC34A); // Verde claro/Limão (Energia)
