@@ -123,4 +123,36 @@ class MealRepositoryImpl implements MealRepository {
       await _supabase.from('profiles').delete().eq('email', email);
     } catch (e) { throw Exception('Falha ao deletar conta'); }
   }
+
+  @override
+  Future<List<Refeicao>> getMealsPaged({
+    required int page,
+    required int pageSize,
+    String? query,
+    String? typeFilter,
+  }) async {
+    final allDtos = await localDataSource.getCachedMeals();
+    var allEntities = allDtos.map((dto) => _mapper.toEntity(dto)).toList();
+
+    if (query != null && query.isNotEmpty) {
+      final q = query.toLowerCase();
+      allEntities = allEntities.where((m) => m.nome.toLowerCase().contains(q)).toList();
+    }
+
+    if (typeFilter != null && typeFilter.isNotEmpty) {
+      allEntities = allEntities.where((m) => m.tipo == typeFilter).toList();
+    }
+
+    final startIndex = (page - 1) * pageSize;
+    
+    if (startIndex >= allEntities.length) {
+      return [];
+    }
+
+    final endIndex = (startIndex + pageSize) < allEntities.length 
+        ? startIndex + pageSize 
+        : allEntities.length;
+
+    return allEntities.sublist(startIndex, endIndex);
+  }
 }

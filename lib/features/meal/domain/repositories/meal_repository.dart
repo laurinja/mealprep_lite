@@ -13,4 +13,11 @@ abstract class MealRepository {
   Future<Map<String, dynamic>?> authenticateUser(String email, String password);
   Future<bool> registerUser(String name, String email, String password);
   Future<void> deleteUserAccount(String email);
+
+  Future<List<Refeicao>> getMealsPaged({
+    required int page, 
+    required int pageSize, 
+    String? query,
+    String? typeFilter 
+  });
 }
