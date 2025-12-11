@@ -9,6 +9,7 @@ import 'features/meal/data/datasources/meal_remote_datasource.dart';
 import 'features/meal/data/repositories/meal_repository_impl.dart';
 import 'features/meal/domain/usecases/generate_weekly_plan_usecase.dart';
 import 'features/meal/presentation/controllers/meal_controller.dart';
+import 'features/meal/presentation/controllers/meal_list_controller.dart';
 import 'services/prefs_service.dart';
 
 import 'pages/splash_page.dart';
@@ -16,6 +17,7 @@ import 'pages/onboarding_page.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/meals_list_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,11 +44,14 @@ void main() async {
   final generateUseCase = GenerateWeeklyPlanUseCase(mealRepository);
   final mealController = MealController(generateUseCase, mealRepository, prefsService);
 
+  final mealListController = MealListController(mealRepository);
+
   runApp(
     MultiProvider(
       providers: [
         Provider<PrefsService>.value(value: prefsService),
         ChangeNotifierProvider.value(value: mealController),
+        ChangeNotifierProvider.value(value: mealListController),
       ],
       child: const MealPrepLiteApp(),
     ),
@@ -113,6 +118,7 @@ class MealPrepLiteApp extends StatelessWidget {
         '/login': (ctx) => const LoginPage(),
         '/home': (ctx) => const HomePage(),
         '/settings': (ctx) => const SettingsPage(),
+        '/catalog': (ctx) => const MealsListPage(),
       },
     );
   }
