@@ -20,4 +20,6 @@ abstract class MealRepository {
     String? query,
     String? typeFilter 
   });
+
+  Future<void> saveRefeicao(Refeicao meal);
 }

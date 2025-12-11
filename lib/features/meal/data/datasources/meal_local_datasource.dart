@@ -24,12 +24,10 @@ class MealLocalDataSourceImpl implements MealLocalDataSource {
         final List decoded = jsonDecode(jsonString);
         return decoded.map((e) => RefeicaoDTO.fromJson(e)).toList();
       } catch (e) {
-        return _getInitialData();
+        return [];
       }
     } else {
-      final initialData = _getInitialData();
-      await cacheMeals(initialData);
-      return initialData;
+      return [];
     }
   }
 
