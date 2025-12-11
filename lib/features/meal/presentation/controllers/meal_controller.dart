@@ -207,4 +207,21 @@ class MealController extends ChangeNotifier {
     _weeklyPlan = {};
     notifyListeners();
   }
+
+  Future<void> editMeal(Refeicao meal) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      await _repository.saveRefeicao(meal);
+      
+      await _loadSavedPlan(); 
+      
+    } catch (e) {
+      debugPrint('Erro ao editar: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

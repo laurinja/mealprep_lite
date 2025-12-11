@@ -25,19 +25,40 @@ class MealRepositoryImpl implements MealRepository {
     try {
       final localDtos = await localDataSource.getCachedMeals();
       final dirtyMeals = localDtos.where((e) => e.isDirty).toList();
+      
       if (dirtyMeals.isNotEmpty) {
         for (var meal in dirtyMeals) {
           try {
             await remoteDataSource.update(meal);
             await localDataSource.updateMealLocally(meal.copyWith(isDirty: false));
-          } catch (e) { debugPrint('Erro push: $e'); }
+          } catch (e) {
+            debugPrint('Erro push: $e');
+          }
         }
       }
+
       final remoteMeals = await remoteDataSource.getAll();
-      if (remoteMeals.isNotEmpty) await localDataSource.cacheMeals(remoteMeals);
-    } catch (e) { debugPrint('Erro geral sync: $e'); }
+      
+      await localDataSource.cacheMeals(remoteMeals);
+      
+    } catch (e) {
+      debugPrint('Erro geral sync: $e');
+    }
   }
 
+  @override
+  Future<void> saveRefeicao(Refeicao meal) async {
+    try {
+      final dto = _mapper.toDto(meal);
+      final dirtyDto = dto.copyWith(isDirty: true);
+      await localDataSource.updateMealLocally(dirtyDto);
+      syncRefeicoes(); 
+    } catch (e) {
+      debugPrint('Erro ao salvar refeição: $e');
+      throw e;
+    }
+  }
+  
   @override
   Future<void> syncUserProfile(String name, String email, String? photoPath) async {
     if (email.isEmpty) return;
@@ -58,12 +79,7 @@ class MealRepositoryImpl implements MealRepository {
       final List<Map<String, dynamic>> rows = [];
       localPlan.forEach((day, mealsByType) {
         mealsByType.forEach((type, mealId) {
-          rows.add({
-            'user_email': email,
-            'day_of_week': day,
-            'meal_type': type,
-            'meal_id': mealId,
-          });
+          rows.add({'user_email': email, 'day_of_week': day, 'meal_type': type, 'meal_id': mealId});
         });
       });
       if (rows.isNotEmpty) await _supabase.from('weekly_plans').insert(rows);
@@ -74,18 +90,12 @@ class MealRepositoryImpl implements MealRepository {
   Future<Map<String, Map<String, String>>> fetchWeeklyPlan(String email) async {
     if (email.isEmpty) return {};
     try {
-      final response = await _supabase
-          .from('weekly_plans')
-          .select()
-          .eq('user_email', email);
-      
+      final response = await _supabase.from('weekly_plans').select().eq('user_email', email);
       final Map<String, Map<String, String>> plan = {};
-      
       for (var row in response) {
-        final day = row['day_of_week'] as String;
-        final type = row['meal_type'] as String;
-        final mealId = row['meal_id'] as String;
-        
+        final day = row['day_of_week'];
+        final type = row['meal_type'];
+        final mealId = row['meal_id'];
         if (!plan.containsKey(day)) plan[day] = {};
         plan[day]![type] = mealId;
       }
@@ -119,40 +129,22 @@ class MealRepositoryImpl implements MealRepository {
 
   @override
   Future<void> deleteUserAccount(String email) async {
-    try {
-      await _supabase.from('profiles').delete().eq('email', email);
-    } catch (e) { throw Exception('Falha ao deletar conta'); }
+    await _supabase.from('profiles').delete().eq('email', email);
   }
-
+  
   @override
-  Future<List<Refeicao>> getMealsPaged({
-    required int page,
-    required int pageSize,
-    String? query,
-    String? typeFilter,
-  }) async {
+  Future<List<Refeicao>> getMealsPaged({required int page, required int pageSize, String? query, String? typeFilter}) async {
     final allDtos = await localDataSource.getCachedMeals();
     var allEntities = allDtos.map((dto) => _mapper.toEntity(dto)).toList();
-
     if (query != null && query.isNotEmpty) {
-      final q = query.toLowerCase();
-      allEntities = allEntities.where((m) => m.nome.toLowerCase().contains(q)).toList();
+      allEntities = allEntities.where((m) => m.nome.toLowerCase().contains(query.toLowerCase())).toList();
     }
-
-    if (typeFilter != null && typeFilter.isNotEmpty) {
+    if (typeFilter != null) {
       allEntities = allEntities.where((m) => m.tipo == typeFilter).toList();
     }
-
     final startIndex = (page - 1) * pageSize;
-    
-    if (startIndex >= allEntities.length) {
-      return [];
-    }
-
-    final endIndex = (startIndex + pageSize) < allEntities.length 
-        ? startIndex + pageSize 
-        : allEntities.length;
-
+    if (startIndex >= allEntities.length) return [];
+    final endIndex = (startIndex + pageSize) < allEntities.length ? startIndex + pageSize : allEntities.length;
     return allEntities.sublist(startIndex, endIndex);
   }
 }
