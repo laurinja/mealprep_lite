@@ -8,7 +8,7 @@ class GenerateWeeklyPlanUseCase {
   GenerateWeeklyPlanUseCase(this.repository);
 
   Future<List<Refeicao>> call(Set<String> preferencias) async {
-    final allMeals = await repository.getRefeicoes();
+    final allMeals = await repository.loadFromCache();
 
     List<Refeicao> filtradas;
     if (preferencias.isEmpty) {

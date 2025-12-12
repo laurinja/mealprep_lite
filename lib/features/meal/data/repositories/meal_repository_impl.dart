@@ -14,14 +14,21 @@ class MealRepositoryImpl implements MealRepository {
 
   MealRepositoryImpl(this.localDataSource, this.remoteDataSource);
 
+
   @override
-  Future<List<Refeicao>> getRefeicoes() async {
+  Future<List<Refeicao>> loadFromCache() async {
     final localDtos = await localDataSource.getCachedMeals();
     return localDtos.map((dto) => _mapper.toEntity(dto)).toList();
   }
 
   @override
-  Future<void> syncRefeicoes() async {
+  Future<List<Refeicao>> listAll() async {
+    return loadFromCache();
+  }
+
+  @override
+  Future<int> syncFromServer([String? userEmail]) async {
+    int changes = 0;
     try {
       final localDtos = await localDataSource.getCachedMeals();
       final dirtyMeals = localDtos.where((e) => e.isDirty).toList();
@@ -31,44 +38,39 @@ class MealRepositoryImpl implements MealRepository {
           try {
             await remoteDataSource.update(meal);
             await localDataSource.updateMealLocally(meal.copyWith(isDirty: false));
+            changes++;
           } catch (e) {
             debugPrint('Erro push: $e');
           }
         }
       }
 
-      final remoteMeals = await remoteDataSource.getAll();
+      final lastSync = await localDataSource.getLastSync();
+      final emailToUse = userEmail ?? '';
+      final remoteMeals = await remoteDataSource.fetchRefeicoes(
+        since: lastSync, 
+        userEmail: emailToUse
+      );
       
-      await localDataSource.cacheMeals(remoteMeals);
+      if (remoteMeals.isNotEmpty) {
+         await localDataSource.upsertMeals(remoteMeals);
+         await localDataSource.saveLastSync(DateTime.now().toUtc());
+         changes += remoteMeals.length;
+      }
       
+      return changes;
     } catch (e) {
-      debugPrint('Erro geral sync: $e');
+      debugPrint('Erro sync: $e');
+      return 0;
     }
   }
 
   @override
-  Future<void> saveRefeicao(Refeicao meal) async {
-    try {
-      final dto = _mapper.toDto(meal);
-      final dirtyDto = dto.copyWith(isDirty: true);
-      await localDataSource.updateMealLocally(dirtyDto);
-      syncRefeicoes(); 
-    } catch (e) {
-      debugPrint('Erro ao salvar refeição: $e');
-      throw e;
-    }
-  }
-  
-  @override
-  Future<void> syncUserProfile(String name, String email, String? photoPath) async {
-    if (email.isEmpty) return;
-    try {
-      await _supabase.from('profiles').update({
-        'name': name,
-        'photo_url': photoPath,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('email', email);
-    } catch (e) { debugPrint('Erro sync profile: $e'); }
+  Future<void> save(Refeicao meal) async {
+    final dto = _mapper.toDto(meal);
+    final dirtyDto = dto.copyWith(isDirty: true);
+    await localDataSource.updateMealLocally(dirtyDto);
+    syncFromServer();
   }
 
   @override
@@ -100,38 +102,9 @@ class MealRepositoryImpl implements MealRepository {
         plan[day]![type] = mealId;
       }
       return plan;
-    } catch (e) {
-      debugPrint('Erro fetch plan: $e');
-      return {};
-    }
+    } catch (e) { return {}; }
   }
 
-  @override
-  Future<Map<String, dynamic>?> authenticateUser(String email, String password) async {
-    try {
-      final response = await _supabase.from('profiles').select().eq('email', email).maybeSingle();
-      if (response != null && response['password'] == password) return response;
-    } catch (e) { debugPrint('Erro login: $e'); }
-    return null;
-  }
-
-  @override
-  Future<bool> registerUser(String name, String email, String password) async {
-    try {
-      final existing = await _supabase.from('profiles').select().eq('email', email).maybeSingle();
-      if (existing != null) return false;
-      await _supabase.from('profiles').insert({
-        'email': email, 'name': name, 'password': password, 'updated_at': DateTime.now().toIso8601String()
-      });
-      return true;
-    } catch (e) { debugPrint('Erro cadastro: $e'); return false; }
-  }
-
-  @override
-  Future<void> deleteUserAccount(String email) async {
-    await _supabase.from('profiles').delete().eq('email', email);
-  }
-  
   @override
   Future<List<Refeicao>> getMealsPaged({required int page, required int pageSize, String? query, String? typeFilter}) async {
     final allDtos = await localDataSource.getCachedMeals();

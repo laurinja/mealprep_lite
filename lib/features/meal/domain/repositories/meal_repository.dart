@@ -1,25 +1,22 @@
 import '../entities/refeicao.dart';
 
 abstract class MealRepository {
-  Future<List<Refeicao>> getRefeicoes();
-  Future<void> syncRefeicoes();
-  
-  Future<void> syncUserProfile(String name, String email, String? photoPath);
-  
-  Future<void> syncWeeklyPlan(String email, Map<String, Map<String, String>> localPlan);
+  Future<List<Refeicao>> loadFromCache();
+
+  Future<int> syncFromServer([String? userEmail]);
+
+  Future<List<Refeicao>> listAll();
+
+  Future<void> save(Refeicao meal);
   
   Future<Map<String, Map<String, String>>> fetchWeeklyPlan(String email);
 
-  Future<Map<String, dynamic>?> authenticateUser(String email, String password);
-  Future<bool> registerUser(String name, String email, String password);
-  Future<void> deleteUserAccount(String email);
+  Future<void> syncWeeklyPlan(String email, Map<String, Map<String, String>> localPlan);
 
   Future<List<Refeicao>> getMealsPaged({
     required int page, 
     required int pageSize, 
-    String? query,
-    String? typeFilter 
+    String? query, 
+    String? typeFilter
   });
-
-  Future<void> saveRefeicao(Refeicao meal);
 }

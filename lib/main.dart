@@ -10,6 +10,7 @@ import 'features/meal/data/repositories/meal_repository_impl.dart';
 import 'features/meal/domain/usecases/generate_weekly_plan_usecase.dart';
 import 'features/meal/presentation/controllers/meal_controller.dart';
 import 'features/meal/presentation/controllers/meal_list_controller.dart';
+import 'features/users/data/repositories/user_repository_impl.dart';  
 import 'services/prefs_service.dart';
 
 import 'pages/splash_page.dart';
@@ -40,9 +41,10 @@ void main() async {
   final mealLocalDS = MealLocalDataSourceImpl(sharedPrefs);
 
   final mealRepository = MealRepositoryImpl(mealLocalDS, mealRemoteDS);
+  final userRepository = UserRepositoryImpl();
 
   final generateUseCase = GenerateWeeklyPlanUseCase(mealRepository);
-  final mealController = MealController(generateUseCase, mealRepository, prefsService);
+  final mealController = MealController(generateUseCase, mealRepository, userRepository, prefsService);
 
   final mealListController = MealListController(mealRepository);
 
