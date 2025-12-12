@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../domain/entities/refeicao.dart';
 import '../../domain/repositories/meal_repository.dart';
@@ -22,7 +23,7 @@ class MealListController extends ChangeNotifier {
   String _currentQuery = '';
   String? _currentTypeFilter;
 
-  Future<void> loadMeals({bool refresh = false}) async {
+  Future<void> loadMeals({bool refresh = false, String? userEmail}) async {
     if (refresh) {
       _currentPage = 1;
       _hasMore = true;
@@ -36,14 +37,35 @@ class MealListController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (kDebugMode) {
+        print('MealListController: Carregando página $_currentPage (Filtro: $_currentTypeFilter)...');
+      }
 
-      final newMeals = await _repository.getMealsPaged(
+      var newMeals = await _repository.getMealsPaged(
         page: _currentPage,
         pageSize: _pageSize,
         query: _currentQuery,
         typeFilter: _currentTypeFilter,
       );
+
+      if (refresh && newMeals.isEmpty && userEmail != null && _currentQuery.isEmpty && _currentTypeFilter == null) {
+        if (kDebugMode) {
+          print('MealListController: Cache vazio. Iniciando sincronização com servidor...');
+        }
+        
+        await _repository.syncFromServer(userEmail);
+        
+        newMeals = await _repository.getMealsPaged(
+          page: _currentPage,
+          pageSize: _pageSize,
+          query: _currentQuery,
+          typeFilter: _currentTypeFilter,
+        );
+        
+        if (kDebugMode) {
+          print('MealListController: Após sync, encontrados ${newMeals.length} itens.');
+        }
+      }
 
       if (refresh) {
         _meals = newMeals;

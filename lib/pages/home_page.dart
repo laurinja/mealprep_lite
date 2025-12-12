@@ -36,8 +36,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _loadUserData();
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MealController>().refreshData();
+      _refreshData(silent: true);
     });
+  }
+
+  Future<void> _refreshData({bool silent = false}) async {
+    await context.read<MealController>().refreshData();
+    
+    if (!silent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Plano sincronizado com a nuvem!'), 
+          duration: Duration(milliseconds: 1000)
+        ),
+      );
+    }
   }
 
   void _loadUserData() {
@@ -130,7 +143,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _handleRemoveConfirmation(Refeicao refeicao) {
-    // (Mantido igual)
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -194,6 +206,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             title: const Text('MealPrep Lite'),
             backgroundColor: theme.colorScheme.secondary,
             foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Sincronizar Agora',
+                onPressed: () => _refreshData(),
+              ),
+            ],
             bottom: TabBar(
               controller: _tabController,
               isScrollable: true,
@@ -202,7 +221,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               tabs: days.map((day) => Tab(text: day)).toList(),
             ),
           ),
-          endDrawer: AppDrawer(
+          drawer: AppDrawer(
             userPhotoPath: _userPhotoPath, userName: _userName, userEmail: _userEmail,
             onEditAvatarPressed: _pickImage, onEditProfilePressed: _editProfileDialog,
           ),
@@ -231,7 +250,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               ),
               Expanded(
-                child: controller.isLoading 
+                child: controller.isLoading && controller.weeklyPlan.isEmpty 
                   ? const Center(child: CircularProgressIndicator())
                   : TabBarView(
                       controller: _tabController,
@@ -250,36 +269,41 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildDayView(String day, Map<String, Refeicao> meals) {
     final types = MealTypes.values;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => _gerarDia(day), icon: const Icon(Icons.flash_on), label: Text('Gerar Cardápio de $day'), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)))),
-        const SizedBox(height: 16),
-        ...types.map((type) {
-          final meal = meals[type];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[200], borderRadius: const BorderRadius.vertical(top: Radius.circular(12))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(MealTypes.translate(type), style: const TextStyle(fontWeight: FontWeight.bold)), TextButton.icon(onPressed: () => _showMealSelectionDialog(day, type), icon: const Icon(Icons.edit, size: 16), label: const Text('Trocar'), style: TextButton.styleFrom(padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap))])),
-                if (meal != null)
-                  InkWell( 
-                    onLongPress: () => _showActionsDialog(meal, day, type),
-                    child: ListTile(
-                      leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(meal.imageUrl ?? '', width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(color: Colors.grey, width: 50, height: 50))),
-                      title: Text(meal.nome),
-                      subtitle: Text(meal.tagIds.join(', ')),
-                      onTap: () => showDialog(context: context, builder: (_) => AlertDialog(title: Text(meal.nome), content: Text(meal.ingredienteIds.join('\n')))),
-                    ),
-                  )
-                else
-                  ListTile(title: const Text('Vazio', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)), trailing: const Icon(Icons.add_circle_outline, color: Colors.grey), onTap: () => _showMealSelectionDialog(day, type)),
-              ],
-            ),
-          );
-        }),
-      ],
+    
+    return RefreshIndicator(
+      onRefresh: () => _refreshData(),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => _gerarDia(day), icon: const Icon(Icons.flash_on), label: Text('Gerar Cardápio de $day'), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)))),
+          const SizedBox(height: 16),
+          ...types.map((type) {
+            final meal = meals[type];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(width: double.infinity, padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey[200], borderRadius: const BorderRadius.vertical(top: Radius.circular(12))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(MealTypes.translate(type), style: const TextStyle(fontWeight: FontWeight.bold)), TextButton.icon(onPressed: () => _showMealSelectionDialog(day, type), icon: const Icon(Icons.edit, size: 16), label: const Text('Trocar'), style: TextButton.styleFrom(padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap))])),
+                  if (meal != null)
+                    InkWell( 
+                      onLongPress: () => _showActionsDialog(meal, day, type),
+                      child: ListTile(
+                        leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(meal.imageUrl ?? '', width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(color: Colors.grey, width: 50, height: 50))),
+                        title: Text(meal.nome),
+                        subtitle: Text(meal.tagIds.join(', ')),
+                        onTap: () => showDialog(context: context, builder: (_) => AlertDialog(title: Text(meal.nome), content: Text(meal.ingredienteIds.join('\n')))),
+                      ),
+                    )
+                  else
+                    ListTile(title: const Text('Vazio', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)), trailing: const Icon(Icons.add_circle_outline, color: Colors.grey), onTap: () => _showMealSelectionDialog(day, type)),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }
