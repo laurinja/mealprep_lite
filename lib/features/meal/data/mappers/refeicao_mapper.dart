@@ -11,6 +11,7 @@ class RefeicaoMapper {
       ingredienteIds: dto.ingredienteIds,
       imageUrl: dto.imageUrl,
       createdBy: dto.createdBy,
+      deletedAt: dto.deletedAt,
     );
   }
 
@@ -23,6 +24,7 @@ class RefeicaoMapper {
       ingredienteIds: entity.ingredienteIds,
       imageUrl: entity.imageUrl,
       createdBy: entity.createdBy,
+      deletedAt: entity.deletedAt,
     );
   }
 }

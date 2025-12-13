@@ -8,9 +8,17 @@ class UserRepositoryImpl implements UserRepository {
   @override
   Future<Map<String, dynamic>?> authenticate(String email, String password) async {
     try {
-      final response = await _supabase.from('profiles').select().eq('email', email).maybeSingle();
+      final response = await _supabase
+          .from('profiles')
+          .select()
+          .eq('email', email)
+          .filter('deleted_at', 'is', 'null')
+          .maybeSingle();
+
       if (response != null && response['password'] == password) return response;
-    } catch (e) { debugPrint('Erro login: $e'); }
+    } catch (e) { 
+      debugPrint('Erro login: $e'); 
+    }
     return null;
   }
 
@@ -18,12 +26,20 @@ class UserRepositoryImpl implements UserRepository {
   Future<bool> register(String name, String email, String password) async {
     try {
       final existing = await _supabase.from('profiles').select().eq('email', email).maybeSingle();
+      
       if (existing != null) return false;
+      
       await _supabase.from('profiles').insert({
-        'email': email, 'name': name, 'password': password, 'updated_at': DateTime.now().toIso8601String()
+        'email': email, 
+        'name': name, 
+        'password': password, 
+        'updated_at': DateTime.now().toIso8601String()
       });
       return true;
-    } catch (e) { debugPrint('Erro cadastro: $e'); return false; }
+    } catch (e) { 
+      debugPrint('Erro cadastro: $e'); 
+      return false; 
+    }
   }
 
   @override
@@ -40,6 +56,13 @@ class UserRepositoryImpl implements UserRepository {
 
   @override
   Future<void> deleteAccount(String email) async {
-    await _supabase.from('profiles').delete().eq('email', email);
+    try {
+      await _supabase.from('profiles').update({
+        'deleted_at': DateTime.now().toIso8601String(),
+      }).eq('email', email);
+    } catch (e) {
+      debugPrint('Erro ao excluir conta: $e');
+      throw Exception('Falha ao desativar conta');
+    }
   }
 }

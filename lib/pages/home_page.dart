@@ -152,11 +152,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remover?'),
-        content: Text('Isso removerá "${refeicao.nome}" desta visualização.'),
+        title: const Text('Confirmar Remoção'),
+        content: Text('Deseja remover "${refeicao.nome}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          TextButton(onPressed: () { Navigator.pop(ctx); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Use "Trocar" para substituir.'))); }, child: const Text('OK')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx); 
+              
+              await context.read<MealController>().softDeleteMeal(refeicao);
+              
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Refeição movida para a lixeira.')),
+                );
+              }
+            },
+            child: const Text('Remover', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );

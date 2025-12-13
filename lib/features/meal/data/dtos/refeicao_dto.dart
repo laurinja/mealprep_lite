@@ -8,6 +8,7 @@ class RefeicaoDTO {
   final bool isDirty;
   final DateTime? updatedAt;
   final String? createdBy;
+  final DateTime? deletedAt;
 
   RefeicaoDTO({
     required this.id,
@@ -19,6 +20,7 @@ class RefeicaoDTO {
     this.isDirty = false,
     this.updatedAt,
     this.createdBy,
+    this.deletedAt,
   });
 
   factory RefeicaoDTO.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,9 @@ class RefeicaoDTO {
           ? DateTime.tryParse(json['updated_at'].toString()) 
           : null,
       createdBy: json['created_by'],
+      deletedAt: json['deleted_at'] != null 
+          ? DateTime.tryParse(json['deleted_at'].toString()) 
+          : null,
     );
   }
 
@@ -48,10 +53,11 @@ class RefeicaoDTO {
       'is_dirty': isDirty,
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
       'created_by': createdBy,
+      'deleted_at': deletedAt?.toIso8601String(),
     };
   }
 
-  RefeicaoDTO copyWith({bool? isDirty, DateTime? updatedAt}) {
+  RefeicaoDTO copyWith({bool? isDirty, DateTime? updatedAt, DateTime? deletedAt}) {
     return RefeicaoDTO(
       id: id,
       nome: nome,
@@ -62,6 +68,7 @@ class RefeicaoDTO {
       isDirty: isDirty ?? this.isDirty,
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy ?? this.createdBy,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }

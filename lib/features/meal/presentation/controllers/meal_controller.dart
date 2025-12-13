@@ -75,16 +75,11 @@ class MealController extends ChangeNotifier {
       var savedMap = _prefsService.getWeeklyPlanMap();
       
       if (savedMap.isEmpty && userEmail.isNotEmpty) {
-         debugPrint('Cache vazio. Buscando plano na nuvem...');
-         savedMap = await _repository.fetchWeeklyPlan(userEmail);
-         
-         if (savedMap.isNotEmpty) {
-           await _prefsService.setWeeklyPlanMap(savedMap);
-           debugPrint('Plano recuperado: ${savedMap.length} dias');
-         }
       }
       
       _weeklyPlan = {};
+      bool planChanged = false;
+
       for (var day in daysOfWeek) {
         if (savedMap.containsKey(day)) {
           _weeklyPlan[day] = {};
@@ -93,14 +88,19 @@ class MealController extends ChangeNotifier {
               final meal = allMeals.firstWhere((m) => m.id == id);
               _weeklyPlan[day]![type] = meal;
             } catch (_) {
-              debugPrint('⚠️ Aviso: Prato ID $id não encontrado no cache local.');
+              debugPrint('Limpeza: Prato $id removido do plano (provavelmente deletado).');
+              planChanged = true;
             }
           });
         }
       }
 
+      if (planChanged) {
+        _saveLocalAndSync();
+      }
+
     } catch (e) {
-      debugPrint('Erro load: $e');
+      debugPrint('Erro ao carregar plano: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -268,6 +268,54 @@ class MealController extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> softDeleteMeal(Refeicao meal) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final deletedMeal = Refeicao(
+        id: meal.id,
+        nome: meal.nome,
+        tipo: meal.tipo,
+        tagIds: meal.tagIds,
+        ingredienteIds: meal.ingredienteIds,
+        imageUrl: meal.imageUrl,
+        createdBy: meal.createdBy,
+        deletedAt: DateTime.now().toUtc(),
+      );
+
+      await _repository.save(deletedMeal);
+      
+      _removeMealFromWeeklyPlan(meal.id);
+      
+      await _loadSavedPlan(skipSync: true);
+
+    } catch (e) {
+      debugPrint('Erro ao excluir: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void _removeMealFromWeeklyPlan(String mealId) {
+    bool changed = false;
+    _weeklyPlan.forEach((day, slots) {
+      final keysToRemove = <String>[];
+      slots.forEach((type, meal) {
+        if (meal.id == mealId) {
+          keysToRemove.add(type);
+          changed = true;
+        }
+      });
+      keysToRemove.forEach(slots.remove);
+    });
+    
+    if (changed) {
+      _saveLocalAndSync();
     }
   }
 

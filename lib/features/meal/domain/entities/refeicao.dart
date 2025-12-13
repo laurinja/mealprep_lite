@@ -4,8 +4,9 @@ class Refeicao {
   final String tipo;
   final List<String> tagIds;
   final List<String> ingredienteIds;
-  final String? imageUrl; 
+  final String? imageUrl;
   final String? createdBy;
+  final DateTime? deletedAt;
 
   Refeicao({
     required this.id,
@@ -15,6 +16,7 @@ class Refeicao {
     required this.ingredienteIds,
     this.imageUrl,
     this.createdBy,
+    this.deletedAt,
   }) {
     if (nome.trim().isEmpty) {
       throw ArgumentError('Nome da refeição não pode ser vazio');

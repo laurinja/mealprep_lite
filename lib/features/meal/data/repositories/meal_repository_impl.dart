@@ -18,7 +18,11 @@ class MealRepositoryImpl implements MealRepository {
   @override
   Future<List<Refeicao>> loadFromCache() async {
     final localDtos = await localDataSource.getCachedMeals();
-    return localDtos.map((dto) => _mapper.toEntity(dto)).toList();
+    
+    return localDtos
+        .where((dto) => dto.deletedAt == null) 
+        .map((dto) => _mapper.toEntity(dto))
+        .toList();
   }
 
   @override
@@ -81,48 +85,91 @@ class MealRepositoryImpl implements MealRepository {
   @override
   Future<void> syncWeeklyPlan(String email, Map<String, Map<String, String>> localPlan) async {
     if (email.isEmpty) return;
+    
     try {
-      await _supabase.from('weekly_plans').delete().eq('user_email', email);
+      await _supabase.from('weekly_plans')
+          .update({
+            'deleted_at': DateTime.now().toIso8601String()
+          })
+          .eq('user_email', email)
+          .filter('deleted_at', 'is', 'null');
+
       final List<Map<String, dynamic>> rows = [];
       localPlan.forEach((day, mealsByType) {
         mealsByType.forEach((type, mealId) {
-          rows.add({'user_email': email, 'day_of_week': day, 'meal_type': type, 'meal_id': mealId});
+          rows.add({
+            'user_email': email, 
+            'day_of_week': day, 
+            'meal_type': type, 
+            'meal_id': mealId
+          });
         });
       });
-      if (rows.isNotEmpty) await _supabase.from('weekly_plans').insert(rows);
-    } catch (e) { debugPrint('Erro sync plan: $e'); }
+
+      if (rows.isNotEmpty) {
+        await _supabase.from('weekly_plans').insert(rows);
+      }
+      
+    } catch (e) { 
+      debugPrint('Erro sync plan: $e'); 
+    }
   }
 
   @override
   Future<Map<String, Map<String, String>>> fetchWeeklyPlan(String email) async {
     if (email.isEmpty) return {};
+    
     try {
-      final response = await _supabase.from('weekly_plans').select().eq('user_email', email);
+      final response = await _supabase
+          .from('weekly_plans')
+          .select()
+          .eq('user_email', email)
+          .filter('deleted_at', 'is', 'null');
+      
       final Map<String, Map<String, String>> plan = {};
+      
       for (var row in response) {
-        final day = row['day_of_week'];
-        final type = row['meal_type'];
-        final mealId = row['meal_id'];
+        final day = row['day_of_week'] as String;
+        final type = row['meal_type'] as String;
+        final mealId = row['meal_id'] as String;
+        
         if (!plan.containsKey(day)) plan[day] = {};
         plan[day]![type] = mealId;
       }
       return plan;
-    } catch (e) { return {}; }
+    } catch (e) {
+      debugPrint('Erro fetch plan: $e');
+      return {};
+    }
   }
 
   @override
-  Future<List<Refeicao>> getMealsPaged({required int page, required int pageSize, String? query, String? typeFilter}) async {
+  Future<List<Refeicao>> getMealsPaged({
+    required int page, 
+    required int pageSize, 
+    String? query, 
+    String? typeFilter
+  }) async {
     final allDtos = await localDataSource.getCachedMeals();
+    
     var allEntities = allDtos.map((dto) => _mapper.toEntity(dto)).toList();
+
+    allEntities = allEntities.where((m) => m.deletedAt == null).toList();
+
     if (query != null && query.isNotEmpty) {
       allEntities = allEntities.where((m) => m.nome.toLowerCase().contains(query.toLowerCase())).toList();
     }
     if (typeFilter != null) {
       allEntities = allEntities.where((m) => m.tipo == typeFilter).toList();
     }
+
     final startIndex = (page - 1) * pageSize;
     if (startIndex >= allEntities.length) return [];
-    final endIndex = (startIndex + pageSize) < allEntities.length ? startIndex + pageSize : allEntities.length;
+    
+    final endIndex = (startIndex + pageSize) < allEntities.length 
+        ? startIndex + pageSize 
+        : allEntities.length;
+        
     return allEntities.sublist(startIndex, endIndex);
   }
 }
