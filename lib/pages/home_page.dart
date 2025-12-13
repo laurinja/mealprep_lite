@@ -123,7 +123,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       builder: (context) {
         return MealActionsDialog(
           onEdit: () => _handleEdit(refeicao, day, type),
-          onRemove: () => _handleRemoveConfirmation(refeicao),
+          onRemove: () => _handleRemoveConfirmation(refeicao, day, type),
         );
       },
     );
@@ -148,23 +148,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  void _handleRemoveConfirmation(Refeicao refeicao) {
+  void _handleRemoveConfirmation(Refeicao refeicao, String day, String type) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar Remoção'),
-        content: Text('Deseja remover "${refeicao.nome}"?'),
+        title: const Text('Remover do Plano?'),
+        content: Text('Isso removerá "${refeicao.nome}" do cardápio de $day.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx); 
               
-              await context.read<MealController>().softDeleteMeal(refeicao);
+              await context.read<MealController>().removeMealFromSchedule(day, type);
               
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Refeição movida para a lixeira.')),
+                  const SnackBar(content: Text('Refeição removida do plano.')),
                 );
               }
             },

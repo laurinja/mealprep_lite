@@ -58,11 +58,12 @@ class MealRepositoryImpl implements MealRepository {
       
       if (remoteMeals.isNotEmpty) {
          await localDataSource.upsertMeals(remoteMeals);
+         final safeTime = DateTime.now().toUtc().subtract(const Duration(minutes: 10));
          
-         await localDataSource.saveLastSync(DateTime.now().toUtc());
+         await localDataSource.saveLastSync(safeTime);
          
          totalChanges += remoteMeals.length;
-         if (kDebugMode) print('⬇️ Repository: Baixados $totalChanges novos itens do servidor.');
+         if (kDebugMode) print('⬇️ Repository: Baixados $totalChanges novos itens.');
       }
       
       return totalChanges;
@@ -87,27 +88,45 @@ class MealRepositoryImpl implements MealRepository {
     if (email.isEmpty) return;
     
     try {
-      await _supabase.from('weekly_plans')
-          .update({
-            'deleted_at': DateTime.now().toIso8601String()
-          })
-          .eq('user_email', email)
-          .filter('deleted_at', 'is', 'null');
+      final currentRemotePlan = await fetchWeeklyPlan(email);
 
-      final List<Map<String, dynamic>> rows = [];
+      for (var day in currentRemotePlan.keys) {
+        final remoteDaySlots = currentRemotePlan[day]!;
+        final localDaySlots = localPlan[day];
+
+        for (var type in remoteDaySlots.keys) {
+          if (localDaySlots == null || !localDaySlots.containsKey(type)) {
+            await _supabase.from('weekly_plans')
+                .update({ 'deleted_at': DateTime.now().toIso8601String() })
+                .match({
+                  'user_email': email,
+                  'day_of_week': day,
+                  'meal_type': type
+                })
+                .filter('deleted_at', 'is', 'null');
+          }
+        }
+      }
+
+      final List<Map<String, dynamic>> rowsToUpsert = [];
+      
       localPlan.forEach((day, mealsByType) {
         mealsByType.forEach((type, mealId) {
-          rows.add({
+          rowsToUpsert.add({
             'user_email': email, 
             'day_of_week': day, 
             'meal_type': type, 
-            'meal_id': mealId
+            'meal_id': mealId,
+            'deleted_at': null
           });
         });
       });
 
-      if (rows.isNotEmpty) {
-        await _supabase.from('weekly_plans').insert(rows);
+      if (rowsToUpsert.isNotEmpty) {
+        await _supabase.from('weekly_plans').upsert(
+          rowsToUpsert, 
+          onConflict: 'user_email, day_of_week, meal_type'
+        );
       }
       
     } catch (e) { 

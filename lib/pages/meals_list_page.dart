@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../features/meal/presentation/controllers/meal_list_controller.dart';
+import '../features/meal/presentation/controllers/meal_controller.dart';
 import '../features/meal/domain/entities/refeicao.dart';
 import '../core/constants/meal_types.dart';
 import '../services/prefs_service.dart';
+
+import '../features/meal/presentation/dialogs/meal_actions_dialog.dart';
+import '../features/meal/presentation/dialogs/meal_form_dialog.dart';
 
 class MealsListPage extends StatefulWidget {
   const MealsListPage({super.key});
@@ -15,6 +19,69 @@ class MealsListPage extends StatefulWidget {
 class _MealsListPageState extends State<MealsListPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+
+  void _showActionsDialog(Refeicao meal) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => MealActionsDialog(
+        onEdit: () => _handleEdit(meal),
+        onRemove: () => _handleDelete(meal),
+      ),
+    );
+  }
+
+  void _handleEdit(Refeicao meal) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => MealFormDialog(
+        meal: meal,
+        onSave: (updatedMeal) async {
+          
+          final controller = context.read<MealController>();
+          
+          final myEmail = context.read<PrefsService>().userEmail;
+          
+          if (meal.createdBy == myEmail) {
+             await context.read<MealController>().editMeal(updatedMeal);
+          } else {
+             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edição de pratos públicos no catálogo virá em breve.')));
+             return;
+          }
+          
+          _onRefresh();
+        },
+      ),
+    );
+  }
+
+  void _handleDelete(Refeicao meal) {
+    final myEmail = context.read<PrefsService>().userEmail;
+    if (meal.createdBy != myEmail) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Você só pode excluir pratos criados por você.')));
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir do Catálogo?'),
+        content: const Text('Isso apagará o prato permanentemente da sua lista.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await context.read<MealController>().softDeleteMeal(meal);
+              _onRefresh();
+            },
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -189,6 +256,7 @@ class _MealsListPageState extends State<MealsListPage> {
       ),
       title: Text(meal.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(MealTypes.translate(meal.tipo), style: TextStyle(color: Colors.green[700], fontSize: 12)),
+      onLongPress: () => _showActionsDialog(meal),
       onTap: () {
         showDialog(
           context: context, 

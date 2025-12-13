@@ -75,8 +75,15 @@ class MealController extends ChangeNotifier {
       var savedMap = _prefsService.getWeeklyPlanMap();
       
       if (savedMap.isEmpty && userEmail.isNotEmpty) {
+         debugPrint('Cache vazio. Buscando plano na nuvem...');
+         
+         savedMap = await _repository.fetchWeeklyPlan(userEmail);
+         
+         if (savedMap.isNotEmpty) {
+           await _prefsService.setWeeklyPlanMap(savedMap);
+           debugPrint('Plano recuperado: ${savedMap.length} dias encontrados.');
+         }
       }
-      
       _weeklyPlan = {};
       bool planChanged = false;
 
@@ -265,6 +272,30 @@ class MealController extends ChangeNotifier {
       
     } catch (e) {
       debugPrint('Erro ao editar: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeMealFromSchedule(String day, String type) async {
+    if (_weeklyPlan.containsKey(day) && _weeklyPlan[day]!.containsKey(type)) {
+      _weeklyPlan[day]!.remove(type);
+      notifyListeners();
+      await _saveLocalAndSync();
+    }
+  }
+
+  Future<void> editMeal(Refeicao meal) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _repository.save(meal);
+      await _loadSavedPlan(skipSync: true); 
+
+    } catch (e) {
+      debugPrint('Erro ao editar refeição: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
