@@ -33,29 +33,54 @@ class MealController extends ChangeNotifier {
   }
 
   Future<void> refreshData() async {
-    await _loadSavedPlan();
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final email = _prefsService.userEmail;
+
+      if (email.isNotEmpty) {
+        await _repository.syncFromServer(email);
+
+        final localPlan = _prefsService.getWeeklyPlanMap();
+        if (localPlan.isNotEmpty) {
+          debugPrint('☁️ Sync: Forçando backup do plano semanal...');
+          await _repository.syncWeeklyPlan(email, localPlan);
+        }
+      }
+
+      await _loadSavedPlan(skipSync: true);
+
+    } catch (e) {
+      debugPrint('Erro no refreshData: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> _loadSavedPlan() async {
+  Future<void> _loadSavedPlan({bool skipSync = false}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       final userEmail = _prefsService.userEmail;
 
-      await _repository.syncFromServer(userEmail);
+      if (!skipSync && userEmail.isNotEmpty) {
+        await _repository.syncFromServer(userEmail);
+      }
       
       final allMeals = await _repository.loadFromCache();
       
       var savedMap = _prefsService.getWeeklyPlanMap();
       
-      if (savedMap.isEmpty && _prefsService.userEmail.isNotEmpty) {
+      if (savedMap.isEmpty && userEmail.isNotEmpty) {
          debugPrint('Cache vazio. Buscando plano na nuvem...');
-         savedMap = await _repository.fetchWeeklyPlan(_prefsService.userEmail);
+         savedMap = await _repository.fetchWeeklyPlan(userEmail);
          
          if (savedMap.isNotEmpty) {
            await _prefsService.setWeeklyPlanMap(savedMap);
-           debugPrint('Plano recuperado!');
+           debugPrint('Plano recuperado: ${savedMap.length} dias');
          }
       }
       
@@ -67,13 +92,15 @@ class MealController extends ChangeNotifier {
             try {
               final meal = allMeals.firstWhere((m) => m.id == id);
               _weeklyPlan[day]![type] = meal;
-            } catch (_) {}
+            } catch (_) {
+              debugPrint('⚠️ Aviso: Prato ID $id não encontrado no cache local.');
+            }
           });
         }
       }
 
     } catch (e) {
-      debugPrint('Erro ao carregar plano: $e');
+      debugPrint('Erro load: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -242,6 +269,12 @@ class MealController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> updateUserProfile(String newName) async {
+    await _prefsService.setUserName(newName);
+    notifyListeners();
+    await _syncWithCloud();
   }
 
   Future<void> _saveLocalAndSync() async {

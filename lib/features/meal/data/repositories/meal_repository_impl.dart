@@ -28,25 +28,25 @@ class MealRepositoryImpl implements MealRepository {
 
   @override
   Future<int> syncFromServer([String? userEmail]) async {
-    int changes = 0;
+    int totalChanges = 0;
+    
     try {
       final localDtos = await localDataSource.getCachedMeals();
       final dirtyMeals = localDtos.where((e) => e.isDirty).toList();
       
       if (dirtyMeals.isNotEmpty) {
-        for (var meal in dirtyMeals) {
-          try {
-            await remoteDataSource.update(meal);
-            await localDataSource.updateMealLocally(meal.copyWith(isDirty: false));
-            changes++;
-          } catch (e) {
-            debugPrint('Erro push: $e');
-          }
+        final pushedCount = await remoteDataSource.upsertRefeicoes(dirtyMeals);
+        
+        if (pushedCount > 0) {
+          final cleanedMeals = dirtyMeals.map((m) => m.copyWith(isDirty: false)).toList();
+          await localDataSource.upsertMeals(cleanedMeals);
+          if (kDebugMode) print('✅ Repository: $pushedCount itens sincronizados e limpos localmente.');
         }
       }
 
       final lastSync = await localDataSource.getLastSync();
       final emailToUse = userEmail ?? '';
+      
       final remoteMeals = await remoteDataSource.fetchRefeicoes(
         since: lastSync, 
         userEmail: emailToUse
@@ -54,13 +54,17 @@ class MealRepositoryImpl implements MealRepository {
       
       if (remoteMeals.isNotEmpty) {
          await localDataSource.upsertMeals(remoteMeals);
+         
          await localDataSource.saveLastSync(DateTime.now().toUtc());
-         changes += remoteMeals.length;
+         
+         totalChanges += remoteMeals.length;
+         if (kDebugMode) print('⬇️ Repository: Baixados $totalChanges novos itens do servidor.');
       }
       
-      return changes;
+      return totalChanges;
+
     } catch (e) {
-      debugPrint('Erro sync: $e');
+      if (kDebugMode) print('❌ Erro Fatal no Sync: $e');
       return 0;
     }
   }
@@ -70,7 +74,8 @@ class MealRepositoryImpl implements MealRepository {
     final dto = _mapper.toDto(meal);
     final dirtyDto = dto.copyWith(isDirty: true);
     await localDataSource.updateMealLocally(dirtyDto);
-    syncFromServer();
+    
+    syncFromServer(meal.createdBy);
   }
 
   @override

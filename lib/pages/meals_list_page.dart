@@ -58,12 +58,9 @@ class _MealsListPageState extends State<MealsListPage> {
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar Lista',
             onPressed: () {
-              _onRefresh();
+              _onRefresh(); 
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Atualizando lista...'), 
-                  duration: Duration(milliseconds: 800)
-                )
+                const SnackBar(content: Text('Atualizando lista...'), duration: Duration(milliseconds: 800))
               );
             },
           ),
@@ -71,6 +68,15 @@ class _MealsListPageState extends State<MealsListPage> {
       ),
       body: Column(
         children: [
+          Consumer<MealListController>(
+            builder: (_, controller, __) {
+              if (controller.isLoading) {
+                return const LinearProgressIndicator(minHeight: 4);
+              }
+              return const SizedBox(height: 0); 
+            },
+          ),
+
           Container(
             padding: const EdgeInsets.all(12),
             color: theme.colorScheme.surface,
@@ -144,16 +150,9 @@ class _MealsListPageState extends State<MealsListPage> {
                   child: ListView.separated(
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: controller.meals.length + (controller.hasMore ? 1 : 0),
+                    itemCount: controller.meals.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, index) {
-                      if (index == controller.meals.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-
                       final meal = controller.meals[index];
                       return _buildMealItem(meal);
                     },
@@ -184,32 +183,12 @@ class _MealsListPageState extends State<MealsListPage> {
         borderRadius: BorderRadius.circular(8),
         child: Image.network(
           meal.imageUrl ?? '',
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-          loadingBuilder: (ctx, child, progress) {
-            if (progress == null) return child;
-            return Container(color: Colors.grey[200], width: 60, height: 60);
-          },
-          errorBuilder: (ctx, error, stack) {
-            return Container(
-              color: Colors.grey[300], 
-              width: 60, height: 60, 
-              child: const Icon(Icons.restaurant, color: Colors.grey)
-            );
-          },
+          width: 60, height: 60, fit: BoxFit.cover,
+          errorBuilder: (_,__,___) => Container(color: Colors.grey[300], width: 60, height: 60, child: const Icon(Icons.restaurant, color: Colors.grey)),
         ),
       ),
       title: Text(meal.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(MealTypes.translate(meal.tipo), style: TextStyle(color: Colors.green[700], fontSize: 12)),
-          const SizedBox(height: 4),
-          if (meal.tagIds.isNotEmpty)
-            Text(meal.tagIds.join(', '), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
-      ),
+      subtitle: Text(MealTypes.translate(meal.tipo), style: TextStyle(color: Colors.green[700], fontSize: 12)),
       onTap: () {
         showDialog(
           context: context, 

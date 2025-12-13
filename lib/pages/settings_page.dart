@@ -18,7 +18,9 @@ class SettingsPage extends StatelessWidget {
             subtitle: const Text('Sair deste dispositivo'),
             onTap: () async {
               final prefs = context.read<PrefsService>();
-              await prefs.setLoggedIn(false); // Apenas desloga
+              
+              await prefs.clearAll(); 
+              
               if (context.mounted) Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
             },
           ),
@@ -53,7 +55,6 @@ class SettingsPage extends StatelessWidget {
               Navigator.pop(ctx);
               
               try {
-                // Chama a exclusão no banco via Controller
                 await context.read<MealController>().deleteAccount(email);
                 
                 if (!context.mounted) return;

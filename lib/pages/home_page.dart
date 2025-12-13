@@ -97,10 +97,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.trim().isNotEmpty) {
-                final prefs = context.read<PrefsService>();
-                await prefs.setUserName(nameCtrl.text.trim());
-                _loadUserData();
-                if (mounted) Navigator.pop(ctx);
+                await context.read<MealController>().updateUserProfile(nameCtrl.text.trim());
+                
+                _loadUserData(); 
+                
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Perfil atualizado!')),
+                  );
+                }
               }
             },
             child: const Text('Salvar'),
@@ -227,6 +233,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
           body: Column(
             children: [
+              if (controller.isLoading)
+                const LinearProgressIndicator(minHeight: 4),
               Container(
                 padding: const EdgeInsets.all(12),
                 color: theme.colorScheme.surface,
@@ -250,15 +258,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               ),
               Expanded(
-                child: controller.isLoading && controller.weeklyPlan.isEmpty 
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                      controller: _tabController,
-                      children: days.map((day) {
-                        final mealsForDay = controller.weeklyPlan[day] ?? {};
-                        return _buildDayView(day, mealsForDay);
-                      }).toList(),
-                    ),
+                child: TabBarView(
+                  controller: _tabController,
+                  children: days.map((day) {
+                    final mealsForDay = controller.weeklyPlan[day] ?? {};
+                    return _buildDayView(day, mealsForDay);
+                  }).toList(),
+                ),
               ),
             ],
           ),
