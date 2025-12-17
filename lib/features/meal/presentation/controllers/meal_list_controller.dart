@@ -48,9 +48,9 @@ class MealListController extends ChangeNotifier {
         typeFilter: _currentTypeFilter,
       );
 
-      if (refresh && newMeals.isEmpty && userEmail != null && _currentQuery.isEmpty && _currentTypeFilter == null) {
+      if (refresh && userEmail != null && _currentQuery.isEmpty && _currentTypeFilter == null) {
         if (kDebugMode) {
-          print('MealListController: Cache vazio. Iniciando sincronização com servidor...');
+          print('MealListController: Atualizando catálogo com o servidor...');
         }
         
         await _repository.syncFromServer(userEmail);

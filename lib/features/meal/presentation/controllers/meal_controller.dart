@@ -42,10 +42,12 @@ class MealController extends ChangeNotifier {
       if (email.isNotEmpty) {
         await _repository.syncFromServer(email);
 
-        final localPlan = _prefsService.getWeeklyPlanMap();
-        if (localPlan.isNotEmpty) {
-          debugPrint('☁️ Sync: Forçando backup do plano semanal...');
-          await _repository.syncWeeklyPlan(email, localPlan);
+        debugPrint('☁️ Sync: Buscando plano semanal atualizado da nuvem...');
+        final remotePlan = await _repository.fetchWeeklyPlan(email);
+        
+        if (remotePlan.isNotEmpty) {
+          await _prefsService.setWeeklyPlanMap(remotePlan);
+          debugPrint('✅ Sync: Plano local atualizado com sucesso.');
         }
       }
 

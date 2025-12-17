@@ -77,9 +77,13 @@ class MealRepositoryImpl implements MealRepository {
   @override
   Future<void> save(Refeicao meal) async {
     final dto = _mapper.toDto(meal);
-    final dirtyDto = dto.copyWith(isDirty: true);
-    await localDataSource.updateMealLocally(dirtyDto);
     
+    final dirtyDto = dto.copyWith(
+      isDirty: true,
+      updatedAt: DateTime.now().toUtc(), 
+    );
+
+    await localDataSource.updateMealLocally(dirtyDto);
     syncFromServer(meal.createdBy);
   }
 
