@@ -15,6 +15,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _controller = PageController();
   int _currentPage = 0;
   bool _termsAccepted = false;
+  bool _hasReadTerms = false;
 
   void _goToLogin() async {
     final prefs = context.read<PrefsService>();
@@ -34,6 +35,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _controller.previousPage(
       duration: const Duration(milliseconds: 300),
       curve: Curves.ease,
+    );
+  }
+
+  void _skipToTerms() {
+    _controller.animateToPage(
+      2, 
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
     );
   }
 
@@ -61,6 +70,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 : const BouncingScrollPhysics(),
             children: pages,
           ),
+          if (_currentPage < 2)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              right: 16,
+              child: TextButton(
+                onPressed: _skipToTerms,
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                child: const Text('Pular'),
+              ),
+            ),
           if (!isLastPage)
             Positioned(
               bottom: 100,
@@ -213,11 +238,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          const Text(
-            'Para sua segurança, leia e aceite nossos termos antes de prosseguir.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             icon: const Icon(Icons.description),
@@ -232,6 +252,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               );
               if (result == true) {
                 setState(() {
+                  _hasReadTerms = true;
                   _termsAccepted = true;
                 });
               }
@@ -245,7 +266,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
             activeColor: theme.colorScheme.primary,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            onChanged: (val) => setState(() => _termsAccepted = val ?? false),
+            onChanged: _hasReadTerms 
+                ? (val) => setState(() => _termsAccepted = val ?? false)
+                : null,
+            subtitle: !_hasReadTerms 
+                ? const Text('(Leia os documentos para habilitar)', style: TextStyle(color: Colors.grey, fontSize: 12)) 
+                : null,
           ),
         ],
       ),
