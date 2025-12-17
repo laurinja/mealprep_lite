@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../dtos/refeicao_dto.dart';
 
@@ -6,19 +7,60 @@ class MealRemoteDataSource {
 
   MealRemoteDataSource(this.client);
 
-  Future<List<RefeicaoDTO>> getAll() async {
+  Future<List<RefeicaoDTO>> fetchRefeicoes({DateTime? since, required String userEmail}) async {
     try {
-      final response = await client.from('refeicoes').select();
-      return (response as List).map((e) => RefeicaoDTO.fromJson(e)).toList();
+      final filterString = 'created_by.is.null,created_by.eq."$userEmail"';
+      
+      var query = client.from('refeicoes').select().or(filterString);
+
+      if (since != null) {
+        query = query.gt('updated_at', since.toIso8601String());
+      }
+      
+      if (kDebugMode) {
+        print('📡 Remote: Buscando com filtro: $filterString');
+      }
+
+      final response = await query;
+      final data = response as List;
+
+      if (kDebugMode) {
+        print('📡 Remote: Download concluído. ${data.length} itens encontrados.');
+      }
+
+      return data.map((e) => RefeicaoDTO.fromJson(e)).toList();
     } catch (e) {
-      throw Exception('Erro ao buscar refeições remotas: $e');
+      if (kDebugMode) print('❌ Erro Remote Fetch: $e');
+      return [];
+    }
+  }
+
+  Future<int> upsertRefeicoes(List<RefeicaoDTO> meals) async {
+    if (meals.isEmpty) return 0;
+
+    final List<Map<String, dynamic>> batchData = meals.map((m) {
+      final json = m.toJson();
+      json.remove('is_dirty'); 
+      return json;
+    }).toList();
+
+    try {
+      if (kDebugMode) print('⬆️ Remote: Enviando ${meals.length} itens...');
+      
+      await client.from('refeicoes').upsert(batchData).select();
+      
+      return meals.length;
+    } catch (e) {
+      if (kDebugMode) print('❌ Erro Remote Batch Upsert: $e');
+      return 0;
     }
   }
 
   Future<void> update(RefeicaoDTO refeicao) async {
-    final data = refeicao.toJson();
-    data.remove('is_dirty'); 
-    
-    await client.from('refeicoes').upsert(data);
+    await upsertRefeicoes([refeicao]);
+  }
+  
+  Future<List<RefeicaoDTO>> getAll() async {
+    return []; 
   }
 }

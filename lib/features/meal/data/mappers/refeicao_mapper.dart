@@ -10,6 +10,8 @@ class RefeicaoMapper {
       tagIds: dto.tagIds,
       ingredienteIds: dto.ingredienteIds,
       imageUrl: dto.imageUrl,
+      createdBy: dto.createdBy,
+      deletedAt: dto.deletedAt,
     );
   }
 
@@ -21,6 +23,8 @@ class RefeicaoMapper {
       tagIds: entity.tagIds,
       ingredienteIds: entity.ingredienteIds,
       imageUrl: entity.imageUrl,
+      createdBy: entity.createdBy,
+      deletedAt: entity.deletedAt,
     );
   }
 }
