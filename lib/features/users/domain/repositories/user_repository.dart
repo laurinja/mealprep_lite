@@ -6,4 +6,6 @@ abstract class UserRepository {
   Future<void> syncProfile(String name, String email, String? photoPath);
 
   Future<void> deleteAccount(String email);
+
+  Future<void> updateUserProfile(String userId, String name, {String? photoUrl});
 }

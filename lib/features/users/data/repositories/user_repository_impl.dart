@@ -67,15 +67,29 @@ class UserRepositoryImpl implements UserRepository {
     }
   }
 
+  Future<Map<String, dynamic>?> getProfileByEmail(String email) async {
+    try {
+      final response = await _supabase
+          .from('profiles')
+          .select()
+          .eq('email', email)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      debugPrint('Erro ao buscar perfil: $e');
+      return null;
+    }
+  }
+
   @override
   Future<void> updateUserProfile(String userId, String name, {String? photoUrl}) async {
       final updates = {
-        'nome_completo': name,
+        'name': name, 
         'updated_at': DateTime.now().toIso8601String(),
       };
       
       if (photoUrl != null) {
-        updates['avatar_url'] = photoUrl;
+        updates['photo_url'] = photoUrl; 
       }
 
       await _supabase.from('profiles').update(updates).eq('id', userId);

@@ -77,7 +77,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final repo = context.read<UserRepositoryImpl>();
         final prefs = context.read<PrefsService>();
         
-        final userId = Supabase.instance.client.auth.currentUser?.id;
+        final userProfile = await repo.getProfileByEmail(_userEmail);
+        final userId = userProfile?['id'];
         
         if (userId != null) {
           final url = await repo.uploadProfileImage(userId, pickedFile);
@@ -86,12 +87,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
              await repo.updateUserProfile(userId, _userName, photoUrl: url);
 
              await prefs.setUserPhotoPath(url); 
+             
              _loadUserData();
              
              ScaffoldMessenger.of(context).showSnackBar(
                const SnackBar(content: Text('Foto de perfil atualizada!'))
              );
           }
+        } else {
+           debugPrint('Usuário não encontrado no banco de dados para o email $_userEmail');
         }
       }
     } catch (e) {
@@ -119,15 +123,39 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.trim().isNotEmpty) {
-                await context.read<MealController>().updateUserProfile(nameCtrl.text.trim());
-                
-                _loadUserData(); 
-                
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Perfil atualizado!')),
-                  );
+                // --- NOVA LÓGICA (Substituindo a chamada ao MealController) ---
+                try {
+                  final newName = nameCtrl.text.trim();
+                  
+                  // 1. Obtém serviços
+                  final repo = context.read<UserRepositoryImpl>();
+                  final prefs = context.read<PrefsService>();
+                  
+                  // 2. Busca ID pelo email (igual fizemos na foto)
+                  final userProfile = await repo.getProfileByEmail(_userEmail);
+                  final userId = userProfile?['id'];
+
+                  if (userId != null) {
+                    // 3. Atualiza no Banco
+                    await repo.updateUserProfile(userId, newName); // photoUrl é opcional
+                    
+                    // 4. Atualiza Localmente
+                    await prefs.setUserName(newName);
+                    
+                    // 5. Atualiza Tela
+                    _loadUserData(); 
+                    
+                    if (mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Nome atualizado com sucesso!')),
+                      );
+                    }
+                  } else {
+                     print('Erro: ID do usuário não encontrado.');
+                  }
+                } catch (e) {
+                  print('Erro ao atualizar nome: $e');
                 }
               }
             },

@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'core/theme/theme_controller.dart';
+
 import 'features/meal/data/datasources/meal_local_datasource.dart';
 import 'features/meal/data/datasources/meal_remote_datasource.dart';
 import 'features/meal/data/repositories/meal_repository_impl.dart';
@@ -37,6 +39,8 @@ void main() async {
   final prefsService = await PrefsService.init();
   final sharedPrefs = await SharedPreferences.getInstance();
 
+  final themeController = ThemeController(prefsService);
+
   final mealRemoteDS = MealRemoteDataSource(Supabase.instance.client);
   final mealLocalDS = MealLocalDataSourceImpl(sharedPrefs);
 
@@ -53,6 +57,7 @@ void main() async {
       providers: [
         Provider<PrefsService>.value(value: prefsService),
         Provider<UserRepositoryImpl>.value(value: userRepository),
+        ChangeNotifierProvider.value(value: themeController),
         ChangeNotifierProvider.value(value: mealController),
         ChangeNotifierProvider.value(value: mealListController),
       ],
@@ -69,59 +74,117 @@ class MealPrepLiteApp extends StatelessWidget {
   static const darkGreen = Color(0xFF2E7D32);
   static const backgroundWhite = Color(0xFFFAFAFA);
 
+  static const darkBackground = Color(0xFF121212);
+  static const darkSurface = Color(0xFF1E1E1E);
+  static const darkPrimary = Color(0xFF81C784);
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MealPrep Lite',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        // Esquema de Cores
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primaryGreen,
-          primary: primaryGreen,
-          secondary: secondaryGreen,
-          surface: Colors.white,
-          background: backgroundWhite,
-        ),
-        // AppBar
-        appBarTheme: const AppBarTheme(
-          backgroundColor: primaryGreen, 
-          foregroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: true,
-        ),
-        // Botões
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primaryGreen,
-            foregroundColor: Colors.white,
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Consumer<ThemeController>(
+      builder: (context, themeCtrl, child) {
+        return MaterialApp(
+          title: 'MealPrep Lite',
+          debugShowCheckedModeBanner: false,
+
+          themeMode: themeCtrl.mode,
+
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.light,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: primaryGreen,
+              brightness: Brightness.light,
+              primary: primaryGreen,
+              secondary: secondaryGreen,
+              surface: Colors.white,
+              surfaceTint: primaryGreen, 
+            ),
+            scaffoldBackgroundColor: backgroundWhite,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: primaryGreen,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              centerTitle: true,
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryGreen,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            cardTheme: CardThemeData(
+              color: Colors.white,
+              elevation: 2,
+              shadowColor: Colors.green.withOpacity(0.1),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            chipTheme: ChipThemeData(
+              backgroundColor: Colors.grey[100],
+              selectedColor: secondaryGreen.withOpacity(0.3),
+              labelStyle: const TextStyle(color: Colors.black87),
+              secondaryLabelStyle: TextStyle(color: darkGreen),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
           ),
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 2,
-          shadowColor: Colors.green.withOpacity(0.1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        chipTheme: ChipThemeData(
-          backgroundColor: Colors.grey[100],
-          selectedColor: secondaryGreen.withOpacity(0.3),
-          labelStyle: const TextStyle(color: Colors.black87),
-          secondaryLabelStyle: TextStyle(color: darkGreen),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (ctx) => const SplashPage(),
-        '/onboarding': (ctx) => const OnboardingPage(),
-        '/login': (ctx) => const LoginPage(),
-        '/home': (ctx) => const HomePage(),
-        '/settings': (ctx) => const SettingsPage(),
-        '/catalog': (ctx) => const MealsListPage(),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: primaryGreen,
+              brightness: Brightness.dark,
+              primary: darkPrimary, 
+              secondary: secondaryGreen,
+              surface: darkSurface,
+              onSurface: Colors.white,
+            ),
+            scaffoldBackgroundColor: darkBackground,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: darkSurface, 
+              foregroundColor: Colors.white,
+              elevation: 0,
+              centerTitle: true,
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryGreen, 
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            cardTheme: CardThemeData(
+              color: darkSurface,
+              elevation: 2,
+              shadowColor: Colors.black.withOpacity(0.3),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            chipTheme: ChipThemeData(
+              backgroundColor: Colors.grey[800], 
+              selectedColor: darkPrimary.withOpacity(0.3),
+              labelStyle: const TextStyle(color: Colors.white),
+              secondaryLabelStyle: TextStyle(color: darkPrimary),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            textTheme: const TextTheme(
+              bodyMedium: TextStyle(color: Colors.white70),
+              bodyLarge: TextStyle(color: Colors.white),
+              titleLarge: TextStyle(color: Colors.white),
+            ),
+            iconTheme: const IconThemeData(color: Colors.white70),
+          ),
+
+          initialRoute: '/',
+          routes: {
+            '/': (ctx) => const SplashPage(),
+            '/onboarding': (ctx) => const OnboardingPage(),
+            '/login': (ctx) => const LoginPage(),
+            '/home': (ctx) => const HomePage(),
+            '/settings': (ctx) => const SettingsPage(),
+            '/catalog': (ctx) => const MealsListPage(),
+          },
+        );
       },
     );
   }

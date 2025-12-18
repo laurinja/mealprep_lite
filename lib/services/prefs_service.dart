@@ -76,4 +76,9 @@ class PrefsService {
 
   // --- Limpar Tudo ---
   Future<void> clearAll() => _prefs.clear();
+
+  // --- Tema ---
+  static const _keyThemeMode = 'theme_mode';
+  String get themeMode => _prefs.getString(_keyThemeMode) ?? 'system';
+  Future<void> setThemeMode(String mode) => _prefs.setString(_keyThemeMode, mode);
 }

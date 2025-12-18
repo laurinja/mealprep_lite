@@ -352,11 +352,11 @@ class MealController extends ChangeNotifier {
     }
   }
 
-  Future<void> updateUserProfile(String newName) async {
+  /*Future<void> updateUserProfile(String newName) async {
     await _prefsService.setUserName(newName);
     notifyListeners();
     await _syncWithCloud();
-  }
+  }*/
 
   Future<void> _saveLocalAndSync() async {
     final Map<String, Map<String, String>> mapToSave = {};
