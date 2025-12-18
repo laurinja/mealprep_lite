@@ -52,6 +52,7 @@ void main() async {
     MultiProvider(
       providers: [
         Provider<PrefsService>.value(value: prefsService),
+        Provider<UserRepositoryImpl>.value(value: userRepository),
         ChangeNotifierProvider.value(value: mealController),
         ChangeNotifierProvider.value(value: mealListController),
       ],

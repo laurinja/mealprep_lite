@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../domain/repositories/user_repository.dart';
 
 class UserRepositoryImpl implements UserRepository {
@@ -63,6 +64,43 @@ class UserRepositoryImpl implements UserRepository {
     } catch (e) {
       debugPrint('Erro ao excluir conta: $e');
       throw Exception('Falha ao desativar conta');
+    }
+  }
+
+  @override
+  Future<void> updateUserProfile(String userId, String name, {String? photoUrl}) async {
+      final updates = {
+        'nome_completo': name,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      
+      if (photoUrl != null) {
+        updates['avatar_url'] = photoUrl;
+      }
+
+      await _supabase.from('profiles').update(updates).eq('id', userId);
+  }
+
+  Future<String?> uploadProfileImage(String userId, XFile imageFile) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final fileExt = imageFile.name.split('.').last;
+      final fileName = '$userId/avatar_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      await _supabase.storage.from('avatars').uploadBinary(
+        fileName,
+        bytes,
+        fileOptions: FileOptions(
+          contentType: imageFile.mimeType,
+          upsert: true
+        ),
+      );
+
+      final imageUrl = _supabase.storage.from('avatars').getPublicUrl(fileName);
+      return imageUrl;
+    } catch (e) {
+      debugPrint('Erro no upload da imagem: $e');
+      return null;
     }
   }
 }

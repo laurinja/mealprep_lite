@@ -1,11 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:mealprep_lite/features/users/data/repositories/user_repository_impl.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:mealprep_lite/services/prefs_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/meal/domain/entities/refeicao.dart';
 import '../features/meal/presentation/controllers/meal_controller.dart';
@@ -65,19 +63,43 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Future<void> _pickImage() async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600);
+      final XFile? pickedFile = await picker.pickImage(
+        source: ImageSource.gallery, 
+        maxWidth: 800, 
+        imageQuality: 70 
+      );
+
       if (pickedFile != null) {
-        final dir = await getApplicationDocumentsDirectory();
-        final name = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final targetPath = p.join(dir.path, name);
-        final XFile? result = await FlutterImageCompress.compressAndGetFile(
-          pickedFile.path, targetPath, minWidth: 500, minHeight: 500, quality: 85);
-        if (result != null) {
-          await Provider.of<PrefsService>(context, listen: false).setUserPhotoPath(result.path);
-          _loadUserData();
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('Enviando imagem...'), duration: Duration(seconds: 2))
+        );
+
+        final repo = context.read<UserRepositoryImpl>();
+        final prefs = context.read<PrefsService>();
+        
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        
+        if (userId != null) {
+          final url = await repo.uploadProfileImage(userId, pickedFile);
+          
+          if (url != null) {
+             await repo.updateUserProfile(userId, _userName, photoUrl: url);
+
+             await prefs.setUserPhotoPath(url); 
+             _loadUserData();
+             
+             ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text('Foto de perfil atualizada!'))
+             );
+          }
         }
       }
-    } catch (e) { debugPrint('Erro: $e'); }
+    } catch (e) {
+      debugPrint('Erro ao selecionar imagem: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text('Erro ao atualizar foto: $e'))
+      );
+    }
   }
 
   void _editProfileDialog() {
@@ -232,12 +254,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 onPressed: () => _refreshData(),
               ),
             ],
-            bottom: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              labelColor: Colors.white,
-              indicatorColor: theme.colorScheme.primary,
-              tabs: days.map((day) => Tab(text: day)).toList(),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(kTextTabBarHeight),
+              child: Align(
+                alignment: Alignment.center,
+                child: TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.center,
+                  labelColor: Colors.white,
+                  indicatorColor: theme.colorScheme.primary,
+                  tabs: days.map((day) => Tab(text: day)).toList(),
+                ),
+              ),
             ),
           ),
           drawer: AppDrawer(
